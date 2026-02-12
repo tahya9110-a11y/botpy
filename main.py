@@ -10,7 +10,6 @@ import datetime
 
 # --- KONFIGURASI ---
 TOKEN = os.getenv('TOKEN')
-# Pastikan ID Channel sudah benar di tab Variables Railway
 ALLOWED_CHANNEL_ID = int(os.getenv('CHANNEL_ID', 1470767786652340390))
 
 class ObfBot(commands.Bot):
@@ -98,7 +97,8 @@ async def on_message(message):
                         ),
                         color=0x2b2d31
                     )
-                    embed.set_author(name=message.author.name, icon_url=message.author.display_avatar.url)
+                    # Perbaikan Foto User menggunakan display_avatar.url
+                    embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
                     embed.set_footer(text="Gacor Bot • Pilih salah satu tombol di bawah")
                     await message.channel.send(embed=embed, view=ObfView(decoded_code, attachment.filename))
                 except Exception as e:
@@ -107,7 +107,7 @@ async def on_message(message):
                 embed_warn = discord.Embed(
                     title="⚠️ Invalid File Format",
                     description=(
-                        f"Maaf **{message.author.name}**, bot ini dikonfigurasi khusus untuk file **.lua**.\n"
+                        f"Maaf **{message.author.display_name}**, bot ini dikonfigurasi khusus untuk file **.lua**.\n"
                         "Silakan upload file yang benar untuk melanjutkan."
                     ),
                     color=0xffcc00
@@ -132,13 +132,13 @@ async def menu(interaction: discord.Interaction):
     )
     embed.add_field(name="❓ Panduan", value="Gunakan `/help` untuk tutorial lengkap.", inline=True)
     embed.add_field(name="📊 Status", value="Gunakan `/status` untuk cek performa.", inline=True)
+    # Perubahan bagian Link Terkait menjadi Butuh Bantuan
     embed.add_field(
-        name="🔗 Link Terkait", 
-        value="[Website](https://google.com) • [Support](https://discord.gg/invite) • [GitHub](https://github.com)", 
+        name="🆘 Butuh Bantuan?", 
+        value="Jika mengalami kendala atau ingin bertanya, silakan hubungi tim Admin atau Developer melalui Support Ticket.", 
         inline=False
     )
     embed.set_thumbnail(url=bot.user.display_avatar.url)
-    embed.set_image(url="https://i.imgur.com/your_banner_here.png") # Opsional: Tambah link banner jika ada
     embed.set_footer(text="Gacor Bot v2.1 • Powered by Gacor Engine")
     await interaction.response.send_message(embed=embed)
 
@@ -169,13 +169,12 @@ async def help_cmd(interaction: discord.Interaction):
         value="Bot akan mengirimkan file baru dengan prefix `GACOR_`. Unduh file tersebut!", 
         inline=False
     )
-    embed.set_footer(text="Butuh bantuan lebih? Hubungi Admin.")
+    embed.set_footer(text="Masih bingung? Hubungi Admin segera.")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="status", description="Cek status dan statistik bot")
 async def status(interaction: discord.Interaction):
     ping = round(bot.latency * 1000)
-    uptime = "Online" # Bisa ditambah logika uptime jika perlu
     embed = discord.Embed(
         title="📊 System Performance Status",
         color=0x00ff00,
@@ -185,7 +184,7 @@ async def status(interaction: discord.Interaction):
     embed.add_field(name="🤖 Bot Version", value="`v2.1 Stable`", inline=True)
     embed.add_field(name="🛡️ Firewall", value="`Locked & Active`", inline=True)
     embed.add_field(name="🏢 Servers", value=f"`{len(bot.guilds)}`", inline=True)
-    embed.add_field(name="🔋 Status", value=f"`{uptime}`", inline=True)
+    embed.add_field(name="🔋 Status", value="`Online`", inline=True)
     embed.set_footer(text="Gacor Engine Monitor")
     await interaction.response.send_message(embed=embed)
 
@@ -196,4 +195,4 @@ if TOKEN:
     except Exception as e:
         print(f"❌ CRITICAL ERROR: {e}")
 else:
-    print("❌ ERROR: TOKEN tidak ditemukan di Environment Variable!")
+    print("❌ ERROR: TOKEN tidak ditemukan!")
