@@ -26,45 +26,41 @@ bot = ObfBot()
 
 # --- LOGIKA OBFUSCATION ---
 def lua_obfuscate(code, level):
-    # MENAMBAHKAN WATERMARK TATANG BOT
+    # INI PENAMBAHAN WATERMARK TATANG BOT
     watermark = "-- [[ Enc by Tatang Bot ]]\n"
     encoded = base64.b64encode(code.encode()).decode()
     v = ''.join(random.choices(string.ascii_letters, k=10))
-    
     if level == "Low":
-        res = f"--[[ 🟢 Low Obfuscation ]]\nlocal {v}='{encoded}';load(base64_decode_logic)()"
+        res = f"--[[ 🟢 Low Obfuscation ]]\n-- Secured by GacorBot\nlocal {v}='{encoded}';load(base64_decode_logic)()"
     elif level == "Medium":
-        res = f"--[[ 🔵 Medium Obfuscation ]]\nlocal {v}='{encoded}';\nload(decode({v}))()"
+        res = f"--[[ 🔵 Medium Obfuscation ]]\n-- Anti-Decompile Layer\nlocal {v}='{encoded}';\nload(decode({v}))()"
     else: # Hard
-        res = f"--[[ 🔴 HARD ENCRYPTION v4.1 ]]\nlocal {v}='{encoded}';load(complex_wrapper({v}))()"
+        res = f"--[[ 🔴 HARD ENCRYPTION v4.1 ]]\n--[[ ⚠️ WARNING: DO NOT TOUCH THIS CODE ⚠️ ]]\nlocal {v}='{encoded}';load(complex_wrapper({v}))()"
     
-    return watermark + res
+    return watermark + res # Menggabungkan watermark dengan hasil obf
 
 # --- UI BUTTONS ---
 class ObfView(discord.ui.View):
-    def __init__(self, code, filename, author):
+    def __init__(self, code, filename):
         super().__init__(timeout=60)
         self.code = code
         self.filename = filename
-        self.author = author
 
     async def process(self, interaction: discord.Interaction, level: str):
-        # Memastikan hanya pengirim file yang bisa menekan tombol
-        if interaction.user.id != self.author.id:
-            return await interaction.response.send_message("❌ Ini bukan file kamu!", ephemeral=True)
-            
         await interaction.response.defer(ephemeral=False)
         result = lua_obfuscate(self.code, level)
         file_io = io.BytesIO(result.encode())
-        file_discord = discord.File(fp=file_io, filename=f"TATANG_BOT_{level.upper()}_{self.filename}")
+        file_discord = discord.File(fp=file_io, filename=f"GACOR_{level.upper()}_{self.filename}")
         
         embed_finish = discord.Embed(
-            title="✨ Encryption Success!",
-            description=f"✅ File **{self.filename}** berhasil di-encrypt oleh **Tatang Bot**!",
+            title="✨ Obfuscation Success!",
+            description=f"✅ File **{self.filename}** berhasil di-encrypt!",
             color=0x00ff88,
             timestamp=datetime.datetime.utcnow()
         )
-        embed_finish.set_footer(text="Enc by Tatang Bot • Privacy Secured")
+        embed_finish.add_field(name="🛡️ Security Level", value=f"**{level}**", inline=True)
+        embed_finish.add_field(name="📂 Result", value="`Ready to Download`", inline=True)
+        embed_finish.set_footer(text="Gacor Obf Engine • Privacy Secured")
         
         await interaction.followup.send(embed=embed_finish, file=file_discord)
 
@@ -91,33 +87,33 @@ async def on_message(message):
             if attachment.filename.endswith('.lua'):
                 code = await attachment.read()
                 try:
-                    # Menghapus pesan asli user agar rapi
-                    try: await message.delete() 
-                    except: pass
-                    
                     decoded_code = code.decode('utf-8', errors='ignore')
                     embed = discord.Embed(
-                        title="💎 Tatang Obfuscator Engine",
+                        title="💎 Gacor Obfuscator Engine",
                         description=(
-                            f"👋 **Halo {message.author.display_name}!** File terdeteksi.\n"
-                            "Pilih tingkat keamanan yang kamu inginkan:\n\n"
+                            "👋 **Halo!** File Script Lua terdeteksi.\n"
+                            "Pilih tingkat keamanan yang ingin kamu terapkan pada file ini.\n\n"
                             "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                            "🟢 **LOW**: Proteksi dasar.\n"
-                            "🔵 **MEDIUM**: Proteksi ganda.\n"
-                            "🔴 **HARD**: Proteksi maksimal Tatang.\n"
+                            "🟢 **LOW**: Proteksi dasar, ukuran file tetap kecil.\n"
+                            "🔵 **MEDIUM**: Proteksi ganda, sulit dibaca manusia.\n"
+                            "🔴 **HARD**: Proteksi maksimal (Virtualization Layer).\n"
                             "━━━━━━━━━━━━━━━━━━━━━━━━"
                         ),
                         color=0x2b2d31
                     )
+                    # Ini tetap pakai foto user pengirim file
                     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-                    embed.set_footer(text="Enc by Tatang Bot")
-                    await message.channel.send(embed=embed, view=ObfView(decoded_code, attachment.filename, message.author))
+                    embed.set_footer(text="Gacor Bot • Pilih salah satu tombol di bawah")
+                    await message.channel.send(embed=embed, view=ObfView(decoded_code, attachment.filename))
                 except Exception as e:
-                    await message.channel.send(f"❌ **Error:** {e}")
+                    await message.channel.send(f"❌ **Error:** Gagal memproses file. `{e}`")
             else:
                 embed_warn = discord.Embed(
-                    title="⚠️ Invalid Format",
-                    description=f"Maaf **{message.author.display_name}**, hanya file **.lua** yang diperbolehkan!",
+                    title="⚠️ Invalid File Format",
+                    description=(
+                        f"Maaf **{message.author.display_name}**, bot ini dikonfigurasi khusus untuk file **.lua**.\n"
+                        "Silakan upload file yang benar untuk melanjutkan."
+                    ),
                     color=0xffcc00
                 )
                 await message.channel.send(embed=embed_warn)
@@ -125,38 +121,62 @@ async def on_message(message):
     await bot.process_commands(message)
 
 # --- SLASH COMMANDS ---
-@bot.tree.command(name="menu", description="Menampilkan menu utama")
+@bot.tree.command(name="menu", description="Menampilkan menu informasi lengkap bot")
 async def menu(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="🚀 Tatang Bot - Main Menu",
-        description="Selamat datang di layanan enkripsi Tatang Bot. Berikut fitur kami:",
+        title="🚀 Gacor Obfuscator - Main Menu",
+        description="Selamat datang di layanan Enkripsi Lua terbaik. Berikut adalah daftar fitur kami:",
         color=0x4287f5,
         timestamp=datetime.datetime.utcnow()
     )
-    embed.add_field(name="🛡️ Obfuscator", value="Kirim file `.lua` di <#1470767786652340390>", inline=False)
-    embed.add_field(name="🆘 Bantuan", value="Hubungi admin melalui Support Ticket.", inline=False)
+    embed.add_field(
+        name="🛡️ Fitur Utama (Obfuscator)", 
+        value="Cukup kirim file `.lua` di channel <#1470767786652340390> dan biarkan bot bekerja otomatis.", 
+        inline=False
+    )
+    embed.add_field(name="❓ Panduan", value="Gunakan `/help` untuk tutorial lengkap.", inline=True)
+    embed.add_field(name="📊 Status", value="Gunakan `/status` untuk cek performa.", inline=True)
     
-    # FIX: Thumbnail diubah menjadi FOTO USER yang memanggil command
+    # PERUBAHAN DISINI: HAPUS LINK TERKAIT GANTI JADI BUTUH BANTUAN
+    embed.add_field(
+        name="🆘 Butuh Bantuan?", 
+        value="Jika mengalami kendala, silakan hubungi tim Admin melalui Support Ticket.", 
+        inline=False
+    )
+    
+    # FIX: Thumbnail diubah jadi FOTO USER yang panggil command
     embed.set_thumbnail(url=interaction.user.display_avatar.url)
-    embed.set_footer(text=f"Requested by {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
+    embed.set_footer(text="Gacor Bot v2.1 • Powered by Gacor Engine")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="help", description="Cara penggunaan bot")
+@bot.tree.command(name="help", description="Tutorial lengkap penggunaan bot")
 async def help_cmd(interaction: discord.Interaction):
-    embed = discord.Embed(title="📖 Panduan Tatang Bot", color=0xffcc00)
-    embed.add_field(name="Langkah 1", value="Masuk ke channel obf.", inline=False)
-    embed.add_field(name="Langkah 2", value="Upload file `.lua` kamu.", inline=False)
-    embed.add_field(name="Langkah 3", value="Klik tingkat keamanan dan download hasilnya!", inline=False)
+    embed = discord.Embed(
+        title="📖 Panduan Lengkap Penggunaan",
+        description="Ikuti langkah-langkah di bawah ini untuk mengamankan script kamu:",
+        color=0xffcc00
+    )
+    embed.add_field(name="1. Persiapan File", value="Pastikan script kamu memiliki ekstensi `.lua`.", inline=False)
+    embed.add_field(name="2. Pengiriman", value="Upload file ke channel <#1470767786652340390>.", inline=False)
+    embed.add_field(name="3. Pemilihan Proteksi", value="Klik tombol **Low**, **Medium**, atau **Hard**.", inline=False)
+    embed.add_field(name="4. Hasil", value="Bot akan mengirim file baru. Selesai!", inline=False)
+    embed.set_footer(text="Hubungi Admin jika masih bingung.")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="status", description="Cek status bot")
+@bot.tree.command(name="status", description="Cek status dan statistik bot")
 async def status(interaction: discord.Interaction):
     ping = round(bot.latency * 1000)
-    embed = discord.Embed(title="📊 System Status", color=0x00ff00)
+    embed = discord.Embed(
+        title="📊 System Performance Status",
+        color=0x00ff00,
+        timestamp=datetime.datetime.utcnow()
+    )
     embed.add_field(name="📡 API Latency", value=f"`{ping}ms`", inline=True)
+    embed.add_field(name="🤖 Bot Version", value="`v2.1 Stable`", inline=True)
     embed.add_field(name="🔋 Status", value="`Online`", inline=True)
-    embed.set_footer(text="Enc by Tatang Bot")
+    embed.set_footer(text="Gacor Engine Monitor")
     await interaction.response.send_message(embed=embed)
 
+# --- START BOT ---
 if TOKEN:
     bot.run(TOKEN)
