@@ -1,4 +1,3 @@
-
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -6,10 +5,12 @@ import base64
 import random
 import string
 import io
+import os
 
 # --- KONFIGURASI ---
-TOKEN = 'TOKEN_BOT_KAMU'
-ALLOWED_CHANNEL_ID = 1470767786652340390
+# Bot akan mengambil data dari tab Variables di Railway
+TOKEN = os.getenv('TOKEN')
+ALLOWED_CHANNEL_ID = int(os.getenv('CHANNEL_ID', 1470767786652340390))
 
 class ObfBot(commands.Bot):
     def __init__(self):
@@ -19,11 +20,11 @@ class ObfBot(commands.Bot):
 
     async def setup_hook(self):
         await self.tree.sync()
-        print(f"✔️ Slash Commands Berhasil Disinkronisasi!")
+        print(f"✔️ Slash Commands Synced!")
 
 bot = ObfBot()
 
-# --- LOGIKA OBFUSCATION (ENC) ---
+# --- LOGIKA OBFUSCATION ---
 def lua_obfuscate(code, level):
     encoded = base64.b64encode(code.encode()).decode()
     v = ''.join(random.choices(string.ascii_letters, k=10))
@@ -42,14 +43,13 @@ class ObfView(discord.ui.View):
         self.filename = filename
 
     async def process(self, interaction: discord.Interaction, level: str):
-        # Ephemeral=False agar hasil kiriman bisa dilihat semua orang atau sesuai setting
         await interaction.response.defer(ephemeral=False)
         result = lua_obfuscate(self.code, level)
         file_io = io.BytesIO(result.encode())
         file_discord = discord.File(fp=file_io, filename=f"GACOR_{level}_{self.filename}")
         
         await interaction.followup.send(
-            content=f"✨ **Proses Selesai!**\n📂 Nama File: `{self.filename}`\n🛡️ Tingkat Keamanan: **{level}**",
+            content=f"✨ **Proses Selesai!**\n📂 File: `{self.filename}` | 🛡️ Keamanan: **{level}**",
             file=file_discord
         )
 
@@ -65,37 +65,30 @@ class ObfView(discord.ui.View):
     async def hard(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.process(interaction, "Hard")
 
-# --- AUTO DETECTION & CHANNEL FILTER ---
+# --- DETEKSI PESAN ---
 @bot.event
 async def on_message(message):
     if message.author.bot: return
     
-    # Kunci Bot hanya di Channel tertentu
     if message.channel.id == ALLOWED_CHANNEL_ID:
         if message.attachments:
             attachment = message.attachments[0]
-            
-            # Cek jika file adalah .lua
             if attachment.filename.endswith('.lua'):
                 code = await attachment.read()
-                embed = discord.Embed(
-                    title="💎 Lua Obfuscator System",
-                    description=(
-                        "Halo! File `.lua` telah terdeteksi.\n"
-                        "Silakan pilih tingkat enkripsi di bawah ini:\n\n"
-                        "🟢 **LOW**: Enkripsi dasar (Ringan).\n"
-                        "🔵 **MEDIUM**: Proteksi menengah (Bagus).\n"
-                        "🔴 **HARD**: Enkripsi berat (Maksimal).\n"
-                    ),
-                    color=0x2b2d31
-                )
-                embed.set_footer(text="Gacor Obfuscator • Hasil instan & aman")
-                await message.channel.send(embed=embed, view=ObfView(code.decode('utf-8', errors='ignore'), attachment.filename))
+                try:
+                    decoded_code = code.decode('utf-8', errors='ignore')
+                    embed = discord.Embed(
+                        title="💎 Gacor Obfuscator",
+                        description="File `.lua` terdeteksi. Pilih tingkat proteksi:",
+                        color=0x2b2d31
+                    )
+                    await message.channel.send(embed=embed, view=ObfView(decoded_code, attachment.filename))
+                except Exception as e:
+                    await message.channel.send(f"❌ Gagal membaca file: {e}")
             else:
-                # Pesan peringatan jika bukan .lua (TIDAK OTOMATIS HAPUS)
                 embed_warn = discord.Embed(
-                    title="❌ Format File Salah",
-                    description=f"Maaf **{message.author.name}**, bot ini hanya mendukung file dengan ekstensi **.lua**.\nSilakan upload file yang benar.",
+                    title="❌ Format Salah",
+                    description="Hanya file **.lua** yang diperbolehkan di sini!",
                     color=0xff4b4b
                 )
                 await message.channel.send(embed=embed_warn)
@@ -103,55 +96,28 @@ async def on_message(message):
     await bot.process_commands(message)
 
 # --- SLASH COMMANDS ---
-@bot.tree.command(name="menu", description="Menampilkan daftar menu bot")
+@bot.tree.command(name="menu", description="Menampilkan menu")
 async def menu(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="📂 Gacor Bot - Main Menu",
-        description="Halo! Berikut adalah fitur yang tersedia pada bot ini:",
-        color=0x4287f5
-    )
-    embed.add_field(name="🛡️ Obfuscate", value="Cukup kirim file `.lua` di channel <#1470767786652340390>.", inline=False)
-    embed.add_field(name="❓ Help", value="Gunakan `/help` untuk panduan penggunaan.", inline=True)
-    embed.add_field(name="📊 Status", value="Gunakan `/status` untuk cek koneksi bot.", inline=True)
-    embed.set_thumbnail(url=bot.user.display_avatar.url)
+    embed = discord.Embed(title="📂 Gacor Bot Menu", color=0x4287f5)
+    embed.add_field(name="🛡️ Obf", value="Kirim file `.lua` di channel ini.", inline=False)
     embed.set_footer(text="Gacor Bot v2.0")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="help", description="Panduan cara pakai bot")
+@bot.tree.command(name="help", description="Cara pakai")
 async def help_cmd(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="❓ Panduan Penggunaan",
-        description=(
-            "**Langkah-langkah mengenkripsi file:**\n\n"
-            "1️⃣ Pergi ke channel khusus: <#1470767786652340390>.\n"
-            "2️⃣ Upload/Kirim file script `.lua` kamu.\n"
-            "3️⃣ Bot akan merespon dengan menu pilihan tingkat keamanan.\n"
-            "4️⃣ Pilih **Low, Medium, atau Hard**.\n"
-            "5️⃣ Bot akan mengirimkan file yang sudah di-encrypt kembali kepada kamu.\n\n"
-            "⚠️ **Catatan:** File selain `.lua` akan ditolak oleh sistem."
-        ),
-        color=0xffcc00
-    )
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message("Kirim file `.lua` di channel <#1470767786652340390> lalu pilih tombolnya!")
 
-@bot.tree.command(name="status", description="Cek status server bot")
+@bot.tree.command(name="status", description="Cek Ping")
 async def status(interaction: discord.Interaction):
-    ping = round(bot.latency * 1000)
-    embed = discord.Embed(
-        title="🚀 System Status",
-        description=(
-            f"📡 **Bot Latency:** {ping}ms\n"
-            f"✅ **Channel Lock:** Active\n"
-            f"🤖 **Bot Engine:** Gacor Obf Engine v4.1"
-        ),
-        color=0x00ff00
-    )
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(f"📡 Pong! {round(bot.latency * 1000)}ms")
 
-@bot.event
-async def on_ready():
-    # Mengatur status aktivitas bot
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="/menu"))
-    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
-
-bot.run(TOKEN)
+# --- MENJALANKAN BOT ---
+if TOKEN:
+    try:
+        bot.run(TOKEN)
+    except discord.errors.LoginFailure:
+        print("❌ ERROR: Token salah! Cek tab Variables di Railway.")
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+else:
+    print("❌ ERROR: Variable TOKEN tidak ditemukan di Railway!")
