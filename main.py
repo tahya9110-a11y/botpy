@@ -26,7 +26,6 @@ bot = ObfBot()
 
 # --- LOGIKA OBFUSCATION ---
 def lua_obfuscate(code, level):
-    # INI PENAMBAHAN WATERMARK TATANG BOT
     watermark = "-- [[ Enc by Tatang Bot ]]\n"
     encoded = base64.b64encode(code.encode()).decode()
     v = ''.join(random.choices(string.ascii_letters, k=10))
@@ -37,14 +36,15 @@ def lua_obfuscate(code, level):
     else: # Hard
         res = f"--[[ 🔴 HARD ENCRYPTION v4.1 ]]\n--[[ ⚠️ WARNING: DO NOT TOUCH THIS CODE ⚠️ ]]\nlocal {v}='{encoded}';load(complex_wrapper({v}))()"
     
-    return watermark + res # Menggabungkan watermark dengan hasil obf
+    return watermark + res
 
 # --- UI BUTTONS ---
 class ObfView(discord.ui.View):
-    def __init__(self, code, filename):
+    def __init__(self, code, filename, original_msg):
         super().__init__(timeout=60)
         self.code = code
         self.filename = filename
+        self.original_msg = original_msg # Menyimpan data pesan asli
 
     async def process(self, interaction: discord.Interaction, level: str):
         await interaction.response.defer(ephemeral=False)
@@ -62,7 +62,14 @@ class ObfView(discord.ui.View):
         embed_finish.add_field(name="📂 Result", value="`Ready to Download`", inline=True)
         embed_finish.set_footer(text="Gacor Obf Engine • Privacy Secured")
         
+        # Kirim file hasil obf
         await interaction.followup.send(embed=embed_finish, file=file_discord)
+
+        # FITUR HAPUS: Menghapus file asli user setelah file obf dikirim
+        try:
+            await self.original_msg.delete()
+        except:
+            pass # Mengabaikan jika bot tidak punya ijin hapus pesan
 
     @discord.ui.button(label="Low Intensity", style=discord.ButtonStyle.green, emoji="🟢")
     async def low(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -101,10 +108,10 @@ async def on_message(message):
                         ),
                         color=0x2b2d31
                     )
-                    # Ini tetap pakai foto user pengirim file
                     embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
                     embed.set_footer(text="Gacor Bot • Pilih salah satu tombol di bawah")
-                    await message.channel.send(embed=embed, view=ObfView(decoded_code, attachment.filename))
+                    # Mengirim pesan dengan menyertakan objek 'message' agar bisa dihapus nanti
+                    await message.channel.send(embed=embed, view=ObfView(decoded_code, attachment.filename, message))
                 except Exception as e:
                     await message.channel.send(f"❌ **Error:** Gagal memproses file. `{e}`")
             else:
@@ -136,15 +143,11 @@ async def menu(interaction: discord.Interaction):
     )
     embed.add_field(name="❓ Panduan", value="Gunakan `/help` untuk tutorial lengkap.", inline=True)
     embed.add_field(name="📊 Status", value="Gunakan `/status` untuk cek performa.", inline=True)
-    
-    # PERUBAHAN DISINI: HAPUS LINK TERKAIT GANTI JADI BUTUH BANTUAN
     embed.add_field(
         name="🆘 Butuh Bantuan?", 
         value="Jika mengalami kendala, silakan hubungi tim Admin melalui Support Ticket.", 
         inline=False
     )
-    
-    # FIX: Thumbnail diubah jadi FOTO USER yang panggil command
     embed.set_thumbnail(url=interaction.user.display_avatar.url)
     embed.set_footer(text="Gacor Bot v2.1 • Powered by Gacor Engine")
     await interaction.response.send_message(embed=embed)
