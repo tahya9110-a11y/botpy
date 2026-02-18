@@ -1,59 +1,34 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TATANG OBFUSCATOR</title>
+<title>Tatang Obfuscator</title>
 
 <style>
 
 body{
-background:url("https://i.imgur.com/8fK4h6K.jpeg") center/cover no-repeat fixed;
-font-family:Arial;
+background:black;
 color:white;
-display:flex;
-justify-content:center;
-align-items:center;
-height:100vh;
-}
-
-.container{
-background:rgba(0,0,0,0.7);
+font-family:monospace;
+text-align:center;
 padding:20px;
-border-radius:15px;
-width:90%;
-max-width:400px;
 }
 
 button{
-width:48%;
-padding:12px;
-margin:5px 1%;
+padding:10px;
+margin:5px;
 border:none;
-border-radius:8px;
+border-radius:5px;
+background:#222;
 color:white;
-font-weight:bold;
-cursor:pointer;
 }
-
-.obf{background:#333;}
-.reset{background:#c0392b;}
-.copy{background:#555;}
-.download{background:#2980b9;}
 
 textarea{
 width:100%;
-height:200px;
-margin-top:10px;
+height:300px;
 background:black;
 color:lime;
-border-radius:8px;
-padding:10px;
-}
-
-input{
-width:100%;
-margin:10px 0;
+margin-top:10px;
 }
 
 </style>
@@ -61,31 +36,23 @@ margin:10px 0;
 </head>
 <body>
 
-<div class="container">
+<h2>Tatang Obfuscator</h2>
 
-<h2 style="text-align:center;">TATANG OBFUSCATOR</h2>
+<input type="file" id="file">
 
-<input type="file" id="fileInput">
+<br>
 
-<div>
+<button onclick="obfuscate()">OBFUSCATE</button>
+<button onclick="copy()">SALIN</button>
+<button onclick="download()">DOWNLOAD</button>
 
-<button class="obf" onclick="obfuscate()">⚡ OBFUSCATE</button>
-<button class="reset" onclick="reset()">🔄 RESET</button>
-
-<button class="copy" onclick="copy()">📋 SALIN</button>
-<button class="download" onclick="download()">⬇ DOWNLOAD</button>
-
-</div>
-
-<textarea id="output" placeholder="Hasil akan muncul di sini..."></textarea>
-
-</div>
+<textarea id="output"></textarea>
 
 <script>
 
 let code="";
 
-document.getElementById("fileInput").onchange=function(e){
+document.getElementById("file").onchange=function(e){
 
 let reader=new FileReader();
 
@@ -99,46 +66,43 @@ reader.readAsText(e.target.files[0]);
 
 };
 
-async function obfuscate(){
+function encodePinStyle(str){
+
+let result="";
+
+for(let i=0;i<str.length;i++){
+
+result+="\\"+str.charCodeAt(i);
+
+}
+
+return result;
+
+}
+
+function obfuscate(){
 
 if(!code){
+
 alert("Pilih file dulu");
+
 return;
-}
-
-document.getElementById("output").value="Processing...";
-
-try{
-
-let res=await fetch("https://api.allorigins.win/raw?url=https://wearedevs.net/obfuscator",{
-
-method:"POST",
-
-headers:{
-"Content-Type":"application/x-www-form-urlencoded"
-},
-
-body:"code="+encodeURIComponent(code)
-
-});
-
-let text=await res.text();
-
-document.getElementById("output").value=text;
-
-}catch{
-
-document.getElementById("output").value="Error mengambil obfuscate";
 
 }
 
-}
+let encoded=encodePinStyle(code);
 
-function reset(){
+let result=`--[[
 
-code="";
-document.getElementById("output").value="";
-document.getElementById("fileInput").value="";
+Tatang
+
+https://tatang-obfuscator.netlify.app
+
+]]
+
+load("${encoded}")()`;
+
+document.getElementById("output").value=result;
 
 }
 
