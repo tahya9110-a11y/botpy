@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>TATANG OBFUSCATOR PRO</title>
+
+<style>
+
+body{
+background:#0f0f0f;
+color:white;
+font-family:Arial;
+text-align:center;
+}
+
+.container{
+max-width:500px;
+margin:auto;
+margin-top:40px;
+}
+
+input,textarea,button{
+width:100%;
+padding:12px;
+margin:6px;
+border-radius:8px;
+border:none;
+}
+
+button{
+background:cyan;
+font-weight:bold;
+cursor:pointer;
+}
+
+textarea{
+height:200px;
+background:black;
+color:lime;
+}
+
+#loading{
+display:none;
+color:cyan;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>TATANG OBFUSCATOR PRO</h2>
+
+<input type="text" id="key" placeholder="Masukkan Key">
+
+<input type="file" id="file">
+
+<button onclick="obfuscate()">OBFUSCATE</button>
+
+<div id="loading">Processing...</div>
+
+<textarea id="result"></textarea>
+
+</div>
+
+<script>
+
+let code="";
+
+document.getElementById("file").onchange=function(e){
+
+let reader=new FileReader();
+
+reader.onload=function(evt){
+
+code=evt.target.result;
+
+};
+
+reader.readAsText(e.target.files[0]);
+
+};
+
+async function obfuscate(){
+
+let key=document.getElementById("key").value;
+
+if(!key||!code){
+alert("Isi key dan file");
+return;
+}
+
+document.getElementById("loading").style.display="block";
+
+let res=await fetch("https://YOUR-RENDER-URL/obfuscate",{
+
+method:"POST",
+
+headers:{
+
+"Content-Type":"application/json"
+
+},
+
+body:JSON.stringify({
+
+key:key,
+
+code:code
+
+})
+
+});
+
+let data=await res.json();
+
+document.getElementById("loading").style.display="none";
+
+if(data.error){
+
+alert("Key salah");
+
+return;
+
+}
+
+document.getElementById("result").value=data.result;
+
+}
+
+</script>
+
+</body>
+</html>
