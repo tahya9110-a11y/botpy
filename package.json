@@ -1,7 +1,7 @@
 {
   "name": "discord-gemini-bot",
-  "version": "1.0.0",
-  "description": "Discord AI Bot Gemini",
+  "version": "2.0.0",
+  "description": "Stable Discord AI Bot Gemini",
   "main": "index.js",
   "type": "module",
   "scripts": {
