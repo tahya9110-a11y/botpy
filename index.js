@@ -4,6 +4,9 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+// =========================
+// CHECK ENV
+// =========================
 if (!process.env.DISCORD_TOKEN) {
   console.error("❌ DISCORD_TOKEN tidak ditemukan");
   process.exit(1);
@@ -14,6 +17,9 @@ if (!process.env.GEMINI_API_KEY) {
   process.exit(1);
 }
 
+// =========================
+// DISCORD SETUP
+// =========================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -23,18 +29,42 @@ const client = new Client({
   partials: [Partials.Channel]
 });
 
+// =========================
+// GEMINI SETUP (AUTO FALLBACK)
+// =========================
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+const modelList = [
+  "gemini-1.5-flash-latest",
+  "gemini-1.5-pro-latest",
+  "gemini-1.0-pro"
+];
+
+let model;
+
+async function initModel() {
+  for (const name of modelList) {
+    try {
+      model = genAI.getGenerativeModel({ model: name });
+      console.log("✅ Model aktif:", name);
+      return;
+    } catch (err) {
+      console.log("❌ Model gagal:", name);
+    }
+  }
+  console.error("❌ Tidak ada model yang bisa dipakai.");
+  process.exit(1);
+}
+
+// =========================
+// MODE SYSTEM
+// =========================
 let mode = "normal";
-
-// Anti spam simple cooldown
-const cooldown = new Map();
 
 function getPrompt(mode) {
   switch (mode) {
     case "toxic":
-      return "Kamu adalah bot savage lucu. Roast tanpa SARA, tanpa hina fisik.";
+      return "Kamu adalah bot savage lucu. Roast tanpa SARA dan tanpa hina fisik.";
     case "sadboy":
       return "Kamu adalah bot sadboy dramatis dan puitis.";
     case "warnet":
@@ -44,30 +74,39 @@ function getPrompt(mode) {
   }
 }
 
+// =========================
+// COOLDOWN SYSTEM
+// =========================
+const cooldown = new Map();
+
+// =========================
+// READY EVENT
+// =========================
 client.once("ready", () => {
-  console.log(`✅ Bot online sebagai ${client.user.tag}`);
+  console.log(`🚀 Bot online sebagai ${client.user.tag}`);
 });
 
+// =========================
+// MESSAGE EVENT
+// =========================
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
-  // Cooldown 5 detik per user
+  // Cooldown 5 detik
   if (cooldown.has(message.author.id)) {
-    const expire = cooldown.get(message.author.id);
-    if (Date.now() < expire) return;
+    if (Date.now() < cooldown.get(message.author.id)) return;
   }
 
   // Ganti mode
   if (message.content.startsWith("!mode ")) {
-    const newMode = message.content.split(" ")[1];
-    mode = newMode;
+    mode = message.content.split(" ")[1];
     message.reply(`🎭 Mode diganti ke: ${mode}`);
     return;
   }
 
-  // Auto trigger
+  // Trigger khusus
   if (message.content.toLowerCase().includes("skill issue")) {
-    message.reply("Fix sih, tapi kamu permanent issue 😭");
+    message.reply("Fix banget sih, tapi kamu permanent issue 😭");
     return;
   }
 
@@ -98,12 +137,14 @@ client.on("messageCreate", async (message) => {
     }
 
   } catch (err) {
-    console.error("AI ERROR:", err);
-    message.reply("⚠️ AI error, cek log Railway.");
+    console.error("🔥 AI ERROR:", err);
+    message.reply("⚠️ AI error, cek Railway logs.");
   }
 });
 
-// Error handler biar gak crash
+// =========================
+// ERROR HANDLER (ANTI CRASH)
+// =========================
 process.on("unhandledRejection", (err) => {
   console.error("Unhandled Rejection:", err);
 });
@@ -112,4 +153,8 @@ process.on("uncaughtException", (err) => {
   console.error("Uncaught Exception:", err);
 });
 
+// =========================
+// START
+// =========================
+await initModel();
 client.login(process.env.DISCORD_TOKEN);
