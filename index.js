@@ -2,31 +2,34 @@ const {
     Client, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, 
     ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle 
 } = require('discord.js');
-
-// Mengambil token dari environment (Untuk keamanan di Railway)
+const Groq = require('groq-sdk');
 require('dotenv').config();
 
+// Inisialisasi Client
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
-    ],
-    partials: [Partials.Message, Partials.Channel, Partials.Reaction]
+    ]
 });
 
-// Sistem penyimpanan sementara (Session) untuk data CS per user
+// Inisialisasi Groq AI
+const groq = new Groq({
+    apiKey: process.env.GROQ_API_KEY
+});
+
+// Session storage
 const csSessions = new Map();
 
 client.once('ready', () => {
-    console.log(`🤖 Bot ${client.user.tag} berhasil online!`);
-    console.log(`Created by tatang - Siap melayani !cs`);
+    console.log(`✅ Bot Online: ${client.user.tag}`);
+    console.log(`🛠️ Provider: Groq AI | Credit: tatang`);
 });
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
-    // Command !cs
     if (message.content.toLowerCase() === '!cs') {
         const embed = new EmbedBuilder()
             .setColor('#2b2d31')
@@ -47,223 +50,119 @@ client.on('messageCreate', async (message) => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-    // 1. Jika tombol "Buat Character Story" ditekan
+    // Tombol Start
     if (interaction.isButton() && interaction.customId === 'start_cs') {
         const selectMenu = new ActionRowBuilder().addComponents(
             new StringSelectMenuBuilder()
                 .setCustomId('select_server')
                 .setPlaceholder('Pilih server tujuan...')
                 .addOptions([
-                    { label: 'SSRP', description: 'Buat CS untuk server State Side RP.', value: 'SSRP' },
-                    { label: 'Virtual RP', description: 'Buat CS untuk server Virtual RP.', value: 'Virtual RP' },
-                    { label: 'AARP', description: 'Buat CS untuk server Air Asia RP.', value: 'AARP' },
-                    { label: 'GCRP', description: 'Buat CS untuk server Grand Country RP.', value: 'GCRP' },
-                    { label: 'TEN ROLEPLAY', description: 'Buat CS untuk server 10RP.', value: '10RP' },
-                    { label: 'CPRP', description: 'Buat CS untuk server Cyristal Pride RP.', value: 'CPRP' },
-                    { label: 'Relative RP', description: 'Buat CS untuk server Relative RP.', value: 'Relative RP' },
-                    { label: 'JGRP', description: 'Buat CS untuk server JGRP.', value: 'JGRP' },
-                    { label: 'FMRP', description: 'Buat CS untuk server FAMERLONE RP.', value: 'FMRP' }
+                    { label: 'SSRP', description: 'Server State Side RP', value: 'SSRP' },
+                    { label: 'Virtual RP', description: 'Server Virtual RP', value: 'Virtual RP' },
+                    { label: 'AARP', description: 'Server Air Asia RP', value: 'AARP' },
+                    { label: 'GCRP', description: 'Server Grand Country RP', value: 'GCRP' },
+                    { label: 'JGRP', description: 'Server Jogjagamers RP', value: 'JGRP' }
                 ])
         );
-
-        await interaction.reply({ 
-            content: 'Pilih server di mana karaktermu akan bermain:', 
-            components: [selectMenu], 
-            ephemeral: true 
-        });
+        await interaction.reply({ content: 'Pilih server di mana karaktermu akan bermain:', components: [selectMenu], ephemeral: true });
     }
 
-    // 2. Jika Server sudah dipilih dari Dropdown
+    // Dropdown Server
     if (interaction.isStringSelectMenu() && interaction.customId === 'select_server') {
-        const selectedServer = interaction.values[0];
-        
-        // Simpan sementara sesi server
-        csSessions.set(interaction.user.id, { server: selectedServer });
-
+        csSessions.set(interaction.user.id, { server: interaction.values[0] });
         const buttons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('side_good')
-                .setLabel('Sisi Baik (Goodside)')
-                .setEmoji('😇')
-                .setStyle(ButtonStyle.Success),
-            new ButtonBuilder()
-                .setCustomId('side_bad')
-                .setLabel('Sisi Jahat (Badside)')
-                .setEmoji('😈')
-                .setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId('side_good').setLabel('Sisi Baik (Goodside)').setEmoji('😇').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('side_bad').setLabel('Sisi Jahat (Badside)').setEmoji('😈').setStyle(ButtonStyle.Danger)
         );
-
-        await interaction.reply({ 
-            content: 'Pilih alur cerita untuk karaktermu:', 
-            components: [buttons], 
-            ephemeral: true 
-        });
+        await interaction.reply({ content: 'Pilih alur cerita untuk karaktermu:', components: [buttons], ephemeral: true });
     }
 
-    // 3. Jika tombol Sisi Baik / Sisi Jahat ditekan (Munculkan Modal 1)
+    // Pilih Side -> Modal 1
     if (interaction.isButton() && (interaction.customId === 'side_good' || interaction.customId === 'side_bad')) {
         const side = interaction.customId === 'side_good' ? 'Good Side' : 'Bad Side';
-        
-        // Update session dengan side yang dipilih
-        const session = csSessions.get(interaction.user.id) || {};
-        session.side = side;
-        csSessions.set(interaction.user.id, session);
+        const session = csSessions.get(interaction.user.id);
+        if(session) session.side = side;
 
-        const modal = new ModalBuilder()
-            .setCustomId('modal_step_1')
-            .setTitle(`Detail Karakter (${side}) (1/2)`);
-
-        // Input Fields (Max 5 per modal)
-        const namaInput = new TextInputBuilder()
-            .setCustomId('input_nama')
-            .setLabel('Nama Lengkap Karakter (IC)')
-            .setPlaceholder('Contoh: John Washington, Kenji Tanaka')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const levelInput = new TextInputBuilder()
-            .setCustomId('input_level')
-            .setLabel('Level Karakter')
-            .setPlaceholder('Contoh: 1')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const genderInput = new TextInputBuilder()
-            .setCustomId('input_gender')
-            .setLabel('Jenis Kelamin')
-            .setPlaceholder('Contoh: Laki-laki / Perempuan')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const dobInput = new TextInputBuilder()
-            .setCustomId('input_dob')
-            .setLabel('Tanggal Lahir')
-            .setPlaceholder('Contoh: 17 Agustus 1995')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const cityInput = new TextInputBuilder()
-            .setCustomId('input_city')
-            .setLabel('Kota Asal')
-            .setPlaceholder('Contoh: Chicago, Illinois')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
+        const modal = new ModalBuilder().setCustomId('modal_step_1').setTitle(`Detail Karakter (${side}) (1/2)`);
         modal.addComponents(
-            new ActionRowBuilder().addComponents(namaInput),
-            new ActionRowBuilder().addComponents(levelInput),
-            new ActionRowBuilder().addComponents(genderInput),
-            new ActionRowBuilder().addComponents(dobInput),
-            new ActionRowBuilder().addComponents(cityInput)
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('in_nama').setLabel('Nama Lengkap Karakter (IC)').setPlaceholder('John Washington').setStyle(TextInputStyle.Short).setRequired(true)),
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('in_level').setLabel('Level Karakter').setPlaceholder('1').setStyle(TextInputStyle.Short).setRequired(true)),
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('in_gender').setLabel('Jenis Kelamin').setPlaceholder('Laki-laki').setStyle(TextInputStyle.Short).setRequired(true)),
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('in_dob').setLabel('Tanggal Lahir').setPlaceholder('17 Agustus 1995').setStyle(TextInputStyle.Short).setRequired(true)),
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('in_city').setLabel('Kota Asal').setPlaceholder('Chicago, Illinois').setStyle(TextInputStyle.Short).setRequired(true))
         );
-
         await interaction.showModal(modal);
     }
 
-    // 4. Jika Modal Part 1 disubmit
+    // Submit Modal 1 -> Button Modal 2
     if (interaction.isModalSubmit() && interaction.customId === 'modal_step_1') {
         const session = csSessions.get(interaction.user.id);
-        if (!session) return interaction.reply({ content: 'Sesi expired, silahkan mulai dari awal.', ephemeral: true });
-
-        // Simpan data dari Part 1
-        session.step1 = {
-            nama: interaction.fields.getTextInputValue('input_nama'),
-            level: interaction.fields.getTextInputValue('input_level'),
-            gender: interaction.fields.getTextInputValue('input_gender'),
-            dob: interaction.fields.getTextInputValue('input_dob'),
-            city: interaction.fields.getTextInputValue('input_city')
+        session.data = {
+            nama: interaction.fields.getTextInputValue('in_nama'),
+            level: interaction.fields.getTextInputValue('in_level'),
+            gender: interaction.fields.getTextInputValue('in_gender'),
+            dob: interaction.fields.getTextInputValue('in_dob'),
+            city: interaction.fields.getTextInputValue('in_city')
         };
-        csSessions.set(interaction.user.id, session);
 
         const button = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('continue_step_2')
-                .setLabel('Lanjutkan ke Detail Cerita (2/2)')
-                .setEmoji('➡️')
-                .setStyle(ButtonStyle.Primary)
+            new ButtonBuilder().setCustomId('to_step_2').setLabel('Lanjutkan ke Detail Cerita (2/2)').setEmoji('➡️').setStyle(ButtonStyle.Primary)
         );
-
-        await interaction.reply({ 
-            content: '✅ Detail dasar berhasil disimpan. Tekan tombol di bawah untuk melanjutkan.', 
-            components: [button], 
-            ephemeral: true 
-        });
+        await interaction.reply({ content: '✅ Detail dasar berhasil disimpan. Tekan tombol di bawah untuk melanjutkan.', components: [button], ephemeral: true });
     }
 
-    // 5. Tombol Lanjut ke Modal 2
-    if (interaction.isButton() && interaction.customId === 'continue_step_2') {
+    // Button ke Modal 2
+    if (interaction.isButton() && interaction.customId === 'to_step_2') {
         const session = csSessions.get(interaction.user.id);
-        if (!session) return interaction.reply({ content: 'Sesi expired.', ephemeral: true });
-
-        const modal = new ModalBuilder()
-            .setCustomId('modal_step_2')
-            .setTitle(`Detail Cerita (${session.side}) (2/2)`);
-
-        const bakatInput = new TextInputBuilder()
-            .setCustomId('input_bakat')
-            .setLabel('Bakat/Keahlian Dominan Karakter')
-            .setPlaceholder('Contoh: Penembak jitu, negosiator ulung...')
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true);
-
-        const kulturInput = new TextInputBuilder()
-            .setCustomId('input_kultur')
-            .setLabel('Kultur/Etnis (Opsional)')
-            .setPlaceholder('Contoh: African-American, Hispanic...')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(false);
-
-        const ekstraInput = new TextInputBuilder()
-            .setCustomId('input_ekstra')
-            .setLabel('Detail Tambahan (Opsional)')
-            .setPlaceholder('Contoh: Punya hutang, dikhianati geng lama, dll.')
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(false);
-
+        const modal = new ModalBuilder().setCustomId('modal_step_2').setTitle(`Detail Cerita (${session.side}) (2/2)`);
         modal.addComponents(
-            new ActionRowBuilder().addComponents(bakatInput),
-            new ActionRowBuilder().addComponents(kulturInput),
-            new ActionRowBuilder().addComponents(ekstraInput)
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('in_bakat').setLabel('Bakat/Keahlian Dominan Karakter').setStyle(TextInputStyle.Paragraph).setRequired(true)),
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('in_kultur').setLabel('Kultur/Etnis (Opsional)').setStyle(TextInputStyle.Short).setRequired(false)),
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('in_ekstra').setLabel('Detail Tambahan (Opsional)').setStyle(TextInputStyle.Paragraph).setRequired(false))
         );
-
         await interaction.showModal(modal);
     }
 
-    // 6. Jika Modal Part 2 disubmit (Selesai)
+    // Final Submit -> Groq AI Generation
     if (interaction.isModalSubmit() && interaction.customId === 'modal_step_2') {
+        await interaction.deferReply({ ephemeral: true }); // Beri waktu AI berpikir
+
         const session = csSessions.get(interaction.user.id);
-        if (!session) return interaction.reply({ content: 'Sesi expired.', ephemeral: true });
+        const bakat = interaction.fields.getTextInputValue('in_bakat');
+        const kultur = interaction.fields.getTextInputValue('in_kultur') || 'Umum';
+        const ekstra = interaction.fields.getTextInputValue('in_ekstra') || 'Tidak ada';
 
-        // Ambil Data Part 2
-        const bakat = interaction.fields.getTextInputValue('input_bakat');
-        const kultur = interaction.fields.getTextInputValue('input_kultur') || 'Tidak disebutkan';
-        const ekstra = interaction.fields.getTextInputValue('input_ekstra') || 'Tidak ada';
+        try {
+            const prompt = `Buatkan cerita latar belakang karakter (Character Story) untuk roleplay GTA 5. 
+            Nama: ${session.data.nama}, Asal: ${session.data.city}, Lahir: ${session.data.dob}, Gender: ${session.data.gender}.
+            Sisi Cerita: ${session.side}, Bakat: ${bakat}, Kultur: ${kultur}, Tambahan: ${ekstra}.
+            Buat cerita dalam 3 paragraf panjang (minimal 300 kata), gunakan bahasa Indonesia yang formal dan naratif.`;
 
-        // Di sini kamu bisa melakukan apapun dengan Datanya.
-        // Contoh: Membuat embed final untuk dikirim ke channel.
-        const resultEmbed = new EmbedBuilder()
-            .setColor('#2b2d31')
-            .setTitle(`📄 Character Story: ${session.step1.nama}`)
-            .addFields(
-                { name: 'Server', value: session.server, inline: true },
-                { name: 'Sisi Cerita', value: session.side, inline: true },
-                { name: 'Level', value: session.step1.level, inline: true },
-                { name: 'Jenis Kelamin', value: session.step1.gender, inline: true },
-                { name: 'Tanggal Lahir', value: session.step1.dob, inline: true },
-                { name: 'Kota Asal', value: session.step1.city, inline: true },
-                { name: 'Kultur/Etnis', value: kultur, inline: true },
-                { name: 'Bakat/Keahlian', value: bakat },
-                { name: 'Detail Tambahan', value: ekstra }
-            )
-            .setFooter({ text: 'Created By tatang.' })
-            .setTimestamp();
+            const chatCompletion = await groq.chat.completions.create({
+                messages: [{ role: 'user', content: prompt }],
+                model: 'llama-3.3-70b-versatile',
+            });
 
-        // Hapus session agar memory tidak penuh
-        csSessions.delete(interaction.user.id);
+            const story = chatCompletion.choices[0].message.content;
 
-        await interaction.reply({ content: '🎉 Character Story berhasil dibuat!', embeds: [resultEmbed] });
+            const finalEmbed = new EmbedBuilder()
+                .setColor(session.side === 'Good Side' ? '#2ecc71' : '#e74c3c')
+                .setTitle(`📄 Character Story - ${session.data.nama}`)
+                .setDescription(story.substring(0, 4000)) // Discord limit
+                .addFields(
+                    { name: 'Server', value: session.server, inline: true },
+                    { name: 'Origin', value: session.data.city, inline: true },
+                    { name: 'Side', value: session.side, inline: true }
+                )
+                .setFooter({ text: 'Created By tatang | Powered by Groq AI' });
+
+            await interaction.editReply({ content: '🎉 Cerita berhasil dibuat oleh AI!', embeds: [finalEmbed] });
+            csSessions.delete(interaction.user.id);
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply({ content: '❌ Terjadi kesalahan pada layanan AI Groq.' });
+        }
     }
 });
 
-// Login Bot
 client.login(process.env.DISCORD_TOKEN);
