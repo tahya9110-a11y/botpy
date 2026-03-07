@@ -59,7 +59,7 @@ client.on('interactionCreate', async (interaction) => {
                 .addOptions([
                     { label: 'SSRP', description: 'Server State Side RP', value: 'SSRP' },
                     { label: 'Virtual RP', description: 'Server Virtual RP', value: 'Virtual RP' },
-                    { label: 'AARP', description: 'Server Air Asia RP', value: 'AARP' },
+                    { label: 'AARP', description: 'Server Arsy Asia RP', value: 'AARP' },
                     { label: 'GCRP', description: 'Server Grand Country RP', value: 'GCRP' },
                     { label: 'JGRP', description: 'Server Jogjagamers RP', value: 'JGRP' }
                 ])
@@ -154,7 +154,7 @@ client.on('interactionCreate', async (interaction) => {
                     { name: 'Origin', value: session.data.city, inline: true },
                     { name: 'Side', value: session.side, inline: true }
                 )
-                .setFooter({ text: 'Created By tatang | Powered by Groq AI' });
+                .setFooter({ text: 'Created By tatang' });
 
             await interaction.editReply({ content: '🎉 Cerita berhasil dibuat oleh AI!', embeds: [finalEmbed] });
             csSessions.delete(interaction.user.id);
