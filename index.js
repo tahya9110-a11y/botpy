@@ -1,211 +1,269 @@
-import 'dotenv/config'
-import fetch from 'node-fetch'
-import {
-  Client,
-  GatewayIntentBits,
-  Events,
-  ButtonBuilder,
-  ButtonStyle,
-  StringSelectMenuBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  EmbedBuilder
-} from 'discord.js'
+const { 
+    Client, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, 
+    ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle 
+} = require('discord.js');
+
+// Mengambil token dari environment (Untuk keamanan di Railway)
+require('dotenv').config();
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
-})
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ],
+    partials: [Partials.Message, Partials.Channel, Partials.Reaction]
+});
 
-const CHANNEL_ID = process.env.CHANNEL_ID
+// Sistem penyimpanan sementara (Session) untuk data CS per user
+const csSessions = new Map();
 
-client.once(Events.ClientReady, () => {
-  console.log(`✅ Bot Online: ${client.user.tag}`)
-})
+client.once('ready', () => {
+    console.log(`🤖 Bot ${client.user.tag} berhasil online!`);
+    console.log(`Created by tatang - Siap melayani !cs`);
+});
 
-/* ================================
-   MESSAGE COMMAND !cs
-================================ */
-client.on(Events.MessageCreate, async (message) => {
-  if (message.author.bot) return
-  if (message.channel.id !== CHANNEL_ID) return
-  if (message.content.toLowerCase() !== '!cs') return
+client.on('messageCreate', async (message) => {
+    if (message.author.bot) return;
 
-  await message.delete().catch(() => {})
+    // Command !cs
+    if (message.content.toLowerCase() === '!cs') {
+        const embed = new EmbedBuilder()
+            .setColor('#2b2d31')
+            .setTitle('📝 Panel Pembuatan Character Story')
+            .setDescription('Tekan tombol di bawah untuk memulai proses pembuatan **Character Story (CS)** yang lebih detail dan sesuai keinginanmu.\n\n**Alur Baru yang Lebih Detail**\n1. Pilih Server\n2. Pilih Sisi Cerita (Baik/Jahat)\n3. Isi Detail Lengkap Karakter (Nama, Kultur, Bakat, dll.)')
+            .setFooter({ text: 'Created By tatang.' });
 
-  const embed = new EmbedBuilder()
-    .setTitle('📝 Panel Pembuatan Character Story')
-    .setDescription('Tekan tombol di bawah untuk membuat CS.')
-    .setColor(0x5865F2)
+        const button = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('start_cs')
+                .setLabel('Buat Character Story')
+                .setEmoji('📝')
+                .setStyle(ButtonStyle.Primary)
+        );
 
-  const button = new ButtonBuilder()
-    .setCustomId('start_cs')
-    .setLabel('Buat Character Story')
-    .setStyle(ButtonStyle.Primary)
+        await message.channel.send({ embeds: [embed], components: [button] });
+    }
+});
 
-  await message.channel.send({
-    embeds: [embed],
-    components: [{ type: 1, components: [button] }]
-  })
-})
+client.on('interactionCreate', async (interaction) => {
+    // 1. Jika tombol "Buat Character Story" ditekan
+    if (interaction.isButton() && interaction.customId === 'start_cs') {
+        const selectMenu = new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId('select_server')
+                .setPlaceholder('Pilih server tujuan...')
+                .addOptions([
+                    { label: 'SSRP', description: 'Buat CS untuk server State Side RP.', value: 'SSRP' },
+                    { label: 'Virtual RP', description: 'Buat CS untuk server Virtual RP.', value: 'Virtual RP' },
+                    { label: 'AARP', description: 'Buat CS untuk server Air Asia RP.', value: 'AARP' },
+                    { label: 'GCRP', description: 'Buat CS untuk server Grand Country RP.', value: 'GCRP' },
+                    { label: 'TEN ROLEPLAY', description: 'Buat CS untuk server 10RP.', value: '10RP' },
+                    { label: 'CPRP', description: 'Buat CS untuk server Cyristal Pride RP.', value: 'CPRP' },
+                    { label: 'Relative RP', description: 'Buat CS untuk server Relative RP.', value: 'Relative RP' },
+                    { label: 'JGRP', description: 'Buat CS untuk server JGRP.', value: 'JGRP' },
+                    { label: 'FMRP', description: 'Buat CS untuk server FAMERLONE RP.', value: 'FMRP' }
+                ])
+        );
 
-/* ================================
-   INTERACTIONS
-================================ */
-client.on(Events.InteractionCreate, async (interaction) => {
-
-  /* BUTTON */
-  if (interaction.isButton() && interaction.customId === 'start_cs') {
-
-    const select = new StringSelectMenuBuilder()
-      .setCustomId('select_server')
-      .setPlaceholder('Pilih Server')
-      .addOptions([
-        { label: 'AARP', value: 'AARP' },
-        { label: 'SSRP', value: 'SSRP' },
-        { label: 'Virtual RP', value: 'VIRTUAL' },
-        { label: 'GCRP', value: 'GCRP' },
-        { label: 'TEN RP', value: 'TENRP' }
-      ])
-
-    await interaction.update({
-      content: 'Pilih server tujuan:',
-      embeds: [],
-      components: [{ type: 1, components: [select] }]
-    })
-  }
-
-  /* SELECT SERVER */
-  if (interaction.isStringSelectMenu() && interaction.customId === 'select_server') {
-
-    const server = interaction.values[0]
-
-    const modal = new ModalBuilder()
-      .setCustomId(`step1_${server}`)
-      .setTitle('Detail Karakter (1/2)')
-
-    const nama = new TextInputBuilder()
-      .setCustomId('nama')
-      .setLabel('Nama Lengkap (IC)')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true)
-
-    const level = new TextInputBuilder()
-      .setCustomId('level')
-      .setLabel('Level Karakter')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true)
-
-    const kota = new TextInputBuilder()
-      .setCustomId('kota')
-      .setLabel('Kota Asal')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true)
-
-    modal.addComponents(
-      { type: 1, components: [nama] },
-      { type: 1, components: [level] },
-      { type: 1, components: [kota] }
-    )
-
-    await interaction.showModal(modal)
-  }
-
-  /* STEP 1 SUBMIT */
-  if (interaction.isModalSubmit() && interaction.customId.startsWith('step1_')) {
-
-    const server = interaction.customId.split('_')[1]
-
-    const data = {
-      server,
-      nama: interaction.fields.getTextInputValue('nama'),
-      level: interaction.fields.getTextInputValue('level'),
-      kota: interaction.fields.getTextInputValue('kota')
+        await interaction.reply({ 
+            content: 'Pilih server di mana karaktermu akan bermain:', 
+            components: [selectMenu], 
+            ephemeral: true 
+        });
     }
 
-    const modal2 = new ModalBuilder()
-      .setCustomId(`step2_${encodeURIComponent(JSON.stringify(data))}`)
-      .setTitle('Detail Cerita (2/2)')
+    // 2. Jika Server sudah dipilih dari Dropdown
+    if (interaction.isStringSelectMenu() && interaction.customId === 'select_server') {
+        const selectedServer = interaction.values[0];
+        
+        // Simpan sementara sesi server
+        csSessions.set(interaction.user.id, { server: selectedServer });
 
-    const bakat = new TextInputBuilder()
-      .setCustomId('bakat')
-      .setLabel('Bakat Dominan')
-      .setStyle(TextInputStyle.Short)
-      .setRequired(true)
+        const buttons = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('side_good')
+                .setLabel('Sisi Baik (Goodside)')
+                .setEmoji('😇')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId('side_bad')
+                .setLabel('Sisi Jahat (Badside)')
+                .setEmoji('😈')
+                .setStyle(ButtonStyle.Danger)
+        );
 
-    const tambahan = new TextInputBuilder()
-      .setCustomId('tambahan')
-      .setLabel('Detail Tambahan')
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(false)
+        await interaction.reply({ 
+            content: 'Pilih alur cerita untuk karaktermu:', 
+            components: [buttons], 
+            ephemeral: true 
+        });
+    }
 
-    modal2.addComponents(
-      { type: 1, components: [bakat] },
-      { type: 1, components: [tambahan] }
-    )
+    // 3. Jika tombol Sisi Baik / Sisi Jahat ditekan (Munculkan Modal 1)
+    if (interaction.isButton() && (interaction.customId === 'side_good' || interaction.customId === 'side_bad')) {
+        const side = interaction.customId === 'side_good' ? 'Good Side' : 'Bad Side';
+        
+        // Update session dengan side yang dipilih
+        const session = csSessions.get(interaction.user.id) || {};
+        session.side = side;
+        csSessions.set(interaction.user.id, session);
 
-    await interaction.showModal(modal2)
-  }
+        const modal = new ModalBuilder()
+            .setCustomId('modal_step_1')
+            .setTitle(`Detail Karakter (${side}) (1/2)`);
 
-  /* FINAL SUBMIT */
-  if (interaction.isModalSubmit() && interaction.customId.startsWith('step2_')) {
+        // Input Fields (Max 5 per modal)
+        const namaInput = new TextInputBuilder()
+            .setCustomId('input_nama')
+            .setLabel('Nama Lengkap Karakter (IC)')
+            .setPlaceholder('Contoh: John Washington, Kenji Tanaka')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
-    await interaction.deferReply({ ephemeral: true })
+        const levelInput = new TextInputBuilder()
+            .setCustomId('input_level')
+            .setLabel('Level Karakter')
+            .setPlaceholder('Contoh: 1')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
-    const prev = JSON.parse(decodeURIComponent(interaction.customId.replace('step2_', '')))
+        const genderInput = new TextInputBuilder()
+            .setCustomId('input_gender')
+            .setLabel('Jenis Kelamin')
+            .setPlaceholder('Contoh: Laki-laki / Perempuan')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
-    const bakat = interaction.fields.getTextInputValue('bakat')
-    const tambahan = interaction.fields.getTextInputValue('tambahan') || '-'
+        const dobInput = new TextInputBuilder()
+            .setCustomId('input_dob')
+            .setLabel('Tanggal Lahir')
+            .setPlaceholder('Contoh: 17 Agustus 1995')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
-    const prompt = `
-Buat Character Story RP server ${prev.server}
+        const cityInput = new TextInputBuilder()
+            .setCustomId('input_city')
+            .setLabel('Kota Asal')
+            .setPlaceholder('Contoh: Chicago, Illinois')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
-Nama: ${prev.nama}
-Level: ${prev.level}
-Kota Asal: ${prev.kota}
-Bakat: ${bakat}
-Detail Tambahan: ${tambahan}
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(namaInput),
+            new ActionRowBuilder().addComponents(levelInput),
+            new ActionRowBuilder().addComponents(genderInput),
+            new ActionRowBuilder().addComponents(dobInput),
+            new ActionRowBuilder().addComponents(cityInput)
+        );
 
-Format:
-- Ringkasan
-- Latar Belakang
-- Motivasi
-- Keahlian
-- Scene Roleplay
-`
+        await interaction.showModal(modal);
+    }
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'llama-3-70b-8192',
-        messages: [
-          { role: 'system', content: 'Kamu adalah pembuat Character Story profesional.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.8,
-        max_tokens: 1200
-      })
-    })
+    // 4. Jika Modal Part 1 disubmit
+    if (interaction.isModalSubmit() && interaction.customId === 'modal_step_1') {
+        const session = csSessions.get(interaction.user.id);
+        if (!session) return interaction.reply({ content: 'Sesi expired, silahkan mulai dari awal.', ephemeral: true });
 
-    const result = await response.json()
-    const text = result.choices[0].message.content
+        // Simpan data dari Part 1
+        session.step1 = {
+            nama: interaction.fields.getTextInputValue('input_nama'),
+            level: interaction.fields.getTextInputValue('input_level'),
+            gender: interaction.fields.getTextInputValue('input_gender'),
+            dob: interaction.fields.getTextInputValue('input_dob'),
+            city: interaction.fields.getTextInputValue('input_city')
+        };
+        csSessions.set(interaction.user.id, session);
 
-    const embed = new EmbedBuilder()
-      .setTitle(`Character Story - ${prev.nama}`)
-      .setDescription(text.substring(0, 4000))
-      .setColor(0x2b2d31)
+        const button = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('continue_step_2')
+                .setLabel('Lanjutkan ke Detail Cerita (2/2)')
+                .setEmoji('➡️')
+                .setStyle(ButtonStyle.Primary)
+        );
 
-    await interaction.editReply({ embeds: [embed] })
-  }
+        await interaction.reply({ 
+            content: '✅ Detail dasar berhasil disimpan. Tekan tombol di bawah untuk melanjutkan.', 
+            components: [button], 
+            ephemeral: true 
+        });
+    }
 
-})
+    // 5. Tombol Lanjut ke Modal 2
+    if (interaction.isButton() && interaction.customId === 'continue_step_2') {
+        const session = csSessions.get(interaction.user.id);
+        if (!session) return interaction.reply({ content: 'Sesi expired.', ephemeral: true });
 
-client.login(process.env.DISCORD_TOKEN)
+        const modal = new ModalBuilder()
+            .setCustomId('modal_step_2')
+            .setTitle(`Detail Cerita (${session.side}) (2/2)`);
+
+        const bakatInput = new TextInputBuilder()
+            .setCustomId('input_bakat')
+            .setLabel('Bakat/Keahlian Dominan Karakter')
+            .setPlaceholder('Contoh: Penembak jitu, negosiator ulung...')
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true);
+
+        const kulturInput = new TextInputBuilder()
+            .setCustomId('input_kultur')
+            .setLabel('Kultur/Etnis (Opsional)')
+            .setPlaceholder('Contoh: African-American, Hispanic...')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
+
+        const ekstraInput = new TextInputBuilder()
+            .setCustomId('input_ekstra')
+            .setLabel('Detail Tambahan (Opsional)')
+            .setPlaceholder('Contoh: Punya hutang, dikhianati geng lama, dll.')
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(false);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(bakatInput),
+            new ActionRowBuilder().addComponents(kulturInput),
+            new ActionRowBuilder().addComponents(ekstraInput)
+        );
+
+        await interaction.showModal(modal);
+    }
+
+    // 6. Jika Modal Part 2 disubmit (Selesai)
+    if (interaction.isModalSubmit() && interaction.customId === 'modal_step_2') {
+        const session = csSessions.get(interaction.user.id);
+        if (!session) return interaction.reply({ content: 'Sesi expired.', ephemeral: true });
+
+        // Ambil Data Part 2
+        const bakat = interaction.fields.getTextInputValue('input_bakat');
+        const kultur = interaction.fields.getTextInputValue('input_kultur') || 'Tidak disebutkan';
+        const ekstra = interaction.fields.getTextInputValue('input_ekstra') || 'Tidak ada';
+
+        // Di sini kamu bisa melakukan apapun dengan Datanya.
+        // Contoh: Membuat embed final untuk dikirim ke channel.
+        const resultEmbed = new EmbedBuilder()
+            .setColor('#2b2d31')
+            .setTitle(`📄 Character Story: ${session.step1.nama}`)
+            .addFields(
+                { name: 'Server', value: session.server, inline: true },
+                { name: 'Sisi Cerita', value: session.side, inline: true },
+                { name: 'Level', value: session.step1.level, inline: true },
+                { name: 'Jenis Kelamin', value: session.step1.gender, inline: true },
+                { name: 'Tanggal Lahir', value: session.step1.dob, inline: true },
+                { name: 'Kota Asal', value: session.step1.city, inline: true },
+                { name: 'Kultur/Etnis', value: kultur, inline: true },
+                { name: 'Bakat/Keahlian', value: bakat },
+                { name: 'Detail Tambahan', value: ekstra }
+            )
+            .setFooter({ text: 'Created By tatang.' })
+            .setTimestamp();
+
+        // Hapus session agar memory tidak penuh
+        csSessions.delete(interaction.user.id);
+
+        await interaction.reply({ content: '🎉 Character Story berhasil dibuat!', embeds: [resultEmbed] });
+    }
+});
+
+// Login Bot
+client.login(process.env.DISCORD_TOKEN);
