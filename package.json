@@ -1,15 +1,13 @@
 {
-  "name": "kotka-cs-bot",
+  "name": "bot-cs-tatang",
   "version": "1.0.0",
-  "description": "Discord Character Story Bot using Groq AI",
+  "description": "Bot Character Story Discord",
   "main": "index.js",
-  "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
-    "dotenv": "^16.4.5",
-    "node-fetch": "^3.3.2"
+    "dotenv": "^16.4.5"
   }
 }
