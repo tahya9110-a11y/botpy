@@ -36,7 +36,7 @@ client.on('messageCreate', async (message) => {
             .setColor('#2b2d31')
             .setTitle('📝 Panel Pembuatan Character Story')
             .setDescription('Tekan tombol di bawah untuk memulai proses pembuatan **Character Story (CS)** yang lebih detail dan sesuai keinginanmu.\n\n**Alur Baru yang Lebih Detail**\n\n1. Pilih Server\n2. Pilih Sisi Cerita (Baik/Jahat)\n3. Isi Detail Lengkap Karakter (Nama, Kultur, Bakat, dll.)')
-            .setFooter({ text: 'Created By tatang.' });
+            .setFooter({ text: 'Created By Tatang' });
 
         const button = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -71,7 +71,7 @@ client.on('interactionCreate', async (interaction) => {
         );
 
         await interaction.reply({ 
-            content: 'Pilih server di mana karaktermu akan bermain:', 
+            content: 'Pilih server Tujuan:', 
             components: [selectMenu], 
             ephemeral: true 
         });
@@ -203,7 +203,7 @@ client.on('interactionCreate', async (interaction) => {
                     { name: '🎭 Sisi Cerita', value: session.side, inline: true },
                     { name: '📈 Level', value: session.data.level, inline: true }
                 )
-                .setFooter({ text: 'Created By tatang | Powered by Groq AI' })
+                .setFooter({ text: 'Created By Tatang' })
                 .setTimestamp();
 
             await interaction.editReply({ content: '🎉 Character Story berhasil di-generate oleh AI!', embeds: [finalEmbed] });
