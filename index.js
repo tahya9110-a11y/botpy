@@ -59,9 +59,9 @@ client.on('interactionCreate', async (interaction) => {
                 .setPlaceholder('Pilih server tujuan...')
                 .addOptions([
                     { label: 'SSRP', description: 'Buat CS untuk server State Side RP', value: 'SSRP' },
-                    { label: 'Virtual RP', description: 'Buat CS untuk server Virtual RP.', value: 'Virtual RP' },
+                    { label: 'Virtual RP', description: 'Buat CS untuk server Virtual RP', value: 'Virtual RP' },
                     { label: 'AARP', description: 'Buat CS untuk server Arsy Asia RP', value: 'AARP' },
-                    { label: 'GCRP', description: 'Buat CS untuk server Grand Country RP.', value: 'GCRP' },
+                    { label: 'GCRP', description: 'Buat CS untuk server Grand Country RP', value: 'GCRP' },
                     { label: 'TEN ROLEPLAY', description: 'Buat CS untuk server 10RP', value: 'TEN ROLEPLAY' },
                     { label: 'CPRP', description: 'Buat CS untuk server Crystal Pride RP', value: 'CPRP' },
                     { label: 'Relative RP', description: 'Buat CS untuk server Relative RP', value: 'Relative RP' },
