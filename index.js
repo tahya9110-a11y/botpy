@@ -57,15 +57,15 @@ client.on('interactionCreate', async (interaction) => {
                 .setCustomId('select_server')
                 .setPlaceholder('Pilih server tujuan...')
                 .addOptions([
-                    { label: 'SSRP', description: 'Buat CS untuk server State Side RP.', value: 'SSRP' },
-                    { label: 'Virtual RP', description: 'Buat CS untuk server Virtual RP.', value: 'Virtual RP' },
-                    { label: 'AARP', description: 'Buat CS untuk server Arsy Asia RP.', value: 'AARP' },
-                    { label: 'GCRP', description: 'Buat CS untuk server Grand Country RP.', value: 'GCRP' },
-                    { label: 'TEN ROLEPLAY', description: 'Buat CS untuk server 10RP.', value: 'TEN ROLEPLAY' },
-                    { label: 'CPRP', description: 'Buat CS untuk server Cyristal Pride RP.', value: 'CPRP' },
-                    { label: 'Relative RP', description: 'Buat CS untuk server Relative RP.', value: 'Relative RP' },
-                    { label: 'JGRP', description: 'Buat CS untuk server JGRP.', value: 'JGRP' },
-                    { label: 'FMRP', description: 'Buat CS untuk server FAMERLONE RP.', value: 'FMRP' }
+                    { label: 'SSRP', description: 'Buat CS untuk server State Side RP', value: 'SSRP' },
+                    { label: 'Virtual RP', description: 'Buat CS untuk server Virtual RP', value: 'Virtual RP' },
+                    { label: 'AARP', description: 'Buat CS untuk server Arsy Asia RP', value: 'AARP' },
+                    { label: 'GCRP', description: 'Buat CS untuk server Grand Country RP', value: 'GCRP' },
+                    { label: 'TEN ROLEPLAY', description: 'Buat CS untuk server 10RP', value: 'TEN ROLEPLAY' },
+                    { label: 'CPRP', description: 'Buat CS untuk server Cyristal Pride RP', value: 'CPRP' },
+                    { label: 'Relative RP', description: 'Buat CS untuk server Relative RP', value: 'Relative RP' },
+                    { label: 'JGRP', description: 'Buat CS untuk server Jogja Gamers RP', value: 'JGRP' },
+                    { label: 'FMRP', description: 'Buat CS untuk server Nasional RP', value: 'NRP' }
                 ])
         );
 
@@ -82,11 +82,11 @@ client.on('interactionCreate', async (interaction) => {
 
         const buttons = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId('side_good')
+                .setCustomId('😇Goodside')
                 .setLabel('😇 Sisi Baik (Goodside)')
                 .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
-                .setCustomId('side_bad')
+                .setCustomId('😈Badside')
                 .setLabel('😈 Sisi Jahat (Badside)')
                 .setStyle(ButtonStyle.Danger)
         );
