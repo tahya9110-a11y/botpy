@@ -14,7 +14,7 @@ const client = new Client({
     partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
-// Setup Groq API (Pastikan API Key diisi di Railway)
+// Setup Groq API
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY
 });
@@ -30,13 +30,12 @@ client.once('ready', () => {
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
-    // Mendukung !cs atau !setupcs (seperti di foto pertama)
     if (message.content.toLowerCase() === '!cs' || message.content.toLowerCase() === '!setupcs') {
         const embed = new EmbedBuilder()
             .setColor('#2b2d31')
             .setTitle('📝 Panel Pembuatan Character Story')
             .setDescription('Tekan tombol di bawah untuk memulai proses pembuatan **Character Story (CS)** yang lebih detail dan sesuai keinginanmu.\n\n**Alur Baru yang Lebih Detail**\n\n1. Pilih Server\n2. Pilih Sisi Cerita (Baik/Jahat)\n3. Isi Detail Lengkap Karakter (Nama, Kultur, Bakat, dll.)')
-            .setFooter({ text: 'Created By Tatang' });
+            .setFooter({ text: 'Created By tatang.' });
 
         const button = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -70,10 +69,10 @@ client.on('interactionCreate', async (interaction) => {
                 ])
         );
 
+        // Pesan publik dengan mention user
         await interaction.reply({ 
-            content: 'Pilih server Tujuan:', 
-            components: [selectMenu], 
-            ephemeral: true 
+            content: `<@${interaction.user.id}> Pilih server di mana karaktermu akan bermain:`, 
+            components: [selectMenu]
         });
     }
 
@@ -85,19 +84,17 @@ client.on('interactionCreate', async (interaction) => {
             new ButtonBuilder()
                 .setCustomId('side_good')
                 .setLabel('😇 Sisi Baik (Goodside)')
-                .setEmoji('😇')
                 .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
                 .setCustomId('side_bad')
                 .setLabel('😈 Sisi Jahat (Badside)')
-                .setEmoji('😈')
                 .setStyle(ButtonStyle.Danger)
         );
 
+        // Pesan publik
         await interaction.reply({ 
-            content: 'Pilih alur cerita untuk karaktermu:', 
-            components: [buttons], 
-            ephemeral: true 
+            content: `<@${interaction.user.id}> Kamu memilih server **${interaction.values[0]}**. Sekarang, pilih alur cerita untuk karaktermu:`, 
+            components: [buttons]
         });
     }
 
@@ -127,7 +124,7 @@ client.on('interactionCreate', async (interaction) => {
     // 4. Submit Modal 1 -> Muncul Tombol Lanjut ke Modal 2
     if (interaction.isModalSubmit() && interaction.customId === 'modal_step_1') {
         const session = csSessions.get(interaction.user.id);
-        if (!session) return interaction.reply({ content: 'Sesi expired, silakan ulangi command.', ephemeral: true });
+        if (!session) return interaction.reply({ content: `<@${interaction.user.id}> Sesi expired, silakan ulangi command dari awal.` });
 
         session.data = {
             nama: interaction.fields.getTextInputValue('in_nama'),
@@ -145,17 +142,17 @@ client.on('interactionCreate', async (interaction) => {
                 .setStyle(ButtonStyle.Primary)
         );
 
+        // Pesan publik
         await interaction.reply({ 
-            content: '✅ Detail dasar berhasil disimpan. Tekan tombol di bawah untuk melanjutkan.', 
-            components: [button], 
-            ephemeral: true 
+            content: `<@${interaction.user.id}> ✅ Detail dasar berhasil disimpan. Tekan tombol di bawah untuk melanjutkan pengisian detail cerita.`, 
+            components: [button]
         });
     }
 
     // 5. Klik Tombol Lanjut -> Membuka Modal 2
     if (interaction.isButton() && interaction.customId === 'to_step_2') {
         const session = csSessions.get(interaction.user.id);
-        if (!session) return interaction.reply({ content: 'Sesi expired.', ephemeral: true });
+        if (!session) return interaction.reply({ content: `<@${interaction.user.id}> Sesi expired.` });
 
         const modal = new ModalBuilder()
             .setCustomId('modal_step_2')
@@ -172,7 +169,8 @@ client.on('interactionCreate', async (interaction) => {
 
     // 6. Final Submit Modal 2 -> Proses Groq AI
     if (interaction.isModalSubmit() && interaction.customId === 'modal_step_2') {
-        await interaction.deferReply({ ephemeral: true }); // Menunggu AI berpikir
+        // deferReply() tanpa ephemeral berarti loadingnya "Bot is thinking..." akan terlihat oleh publik
+        await interaction.deferReply(); 
 
         const session = csSessions.get(interaction.user.id);
         const bakat = interaction.fields.getTextInputValue('in_bakat');
@@ -206,11 +204,14 @@ client.on('interactionCreate', async (interaction) => {
                 .setFooter({ text: 'Created By Tatang' })
                 .setTimestamp();
 
-            await interaction.editReply({ content: '🎉 Character Story berhasil di-generate oleh AI!', embeds: [finalEmbed] });
+            await interaction.editReply({ 
+                content: `🎉 Character Story milik <@${interaction.user.id}> berhasil di-generate oleh AI!`, 
+                embeds: [finalEmbed] 
+            });
             csSessions.delete(interaction.user.id); // Bersihkan sesi
         } catch (error) {
             console.error(error);
-            await interaction.editReply({ content: '❌ Waduh, layanan AI sedang bermasalah atau gagal dihubungi. Coba lagi nanti.' });
+            await interaction.editReply({ content: `<@${interaction.user.id}> ❌ Waduh, layanan AI sedang bermasalah atau gagal dihubungi. Coba lagi nanti.` });
         }
     }
 });
