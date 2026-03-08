@@ -1,7 +1,7 @@
 {
-  "name": "bot-cs-tatang-groq",
-  "version": "1.1.0",
-  "description": "Bot Character Story with Groq AI",
+  "name": "bot-cs-tatang",
+  "version": "1.0.0",
+  "description": "Bot Character Story Discord - 100% Mirip",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
