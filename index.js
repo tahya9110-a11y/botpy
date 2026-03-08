@@ -65,7 +65,7 @@ client.on('interactionCreate', async (interaction) => {
                     { label: 'CPRP', description: 'Buat CS untuk server Cyristal Pride RP', value: 'CPRP' },
                     { label: 'Relative RP', description: 'Buat CS untuk server Relative RP', value: 'Relative RP' },
                     { label: 'JGRP', description: 'Buat CS untuk server Jogja Gamers RP', value: 'JGRP' },
-                    { label: 'FMRP', description: 'Buat CS untuk server Nasional RP', value: 'NRP' }
+                    { label: 'NRP', description: 'Buat CS untuk server Nasional RP', value: 'NRP' }
                 ])
         );
 
