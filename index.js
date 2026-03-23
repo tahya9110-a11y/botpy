@@ -1,13 +1,12 @@
 const { Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
 const crypto = require('crypto');
 
-// ================= KONFIGURASI =================
-const TOKEN_DISCORD = 'MTQ4NDA3NDA5NDc2MzgzNTM5Mg.GMhdXE.scuO9YccbDKidbWWh3OGzlbSv3kHX4siyImkwI'; 
-const ADMIN_ROLE_ID = '1466470849266848009'; // Role yang bisa reset token
-const PORT = 3000;
+// Mengambil konfigurasi dari Environment Variables Railway
+const TOKEN_DISCORD = process.env.DISCORD_TOKEN; 
+const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID; 
+const PORT = process.env.PORT || 3000;
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
@@ -25,7 +24,7 @@ let tokenData = {
 function generateNewToken() {
     const randomStr = crypto.randomBytes(4).toString('hex').toUpperCase();
     tokenData.key = `TATANG-${randomStr}`;
-    tokenData.expires = Date.now() + (24 * 60 * 60 * 1000); // Set ulang 24 jam
+    tokenData.expires = Date.now() + (24 * 60 * 60 * 1000);
     return tokenData.key;
 }
 
@@ -51,7 +50,7 @@ app.get('/api/verify', (req, res) => {
 app.listen(PORT, () => console.log(`API Server berjalan di port ${PORT}`));
 
 // ================= DISCORD BOT =================
-client.on('ready', () => console.log(`Bot Discord ${client.user.tag} Online!`));
+client.on('ready', () => console.log(`Bot Discord ${client.user.tag} Online untuk Tatang Community!`));
 
 client.on('messageCreate', async (message) => {
     if (message.content === '!token') {
@@ -117,4 +116,9 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
-client.login(TOKEN_DISCORD);
+// Jalankan Bot
+if (!TOKEN_DISCORD) {
+    console.error("ERROR: DISCORD_TOKEN tidak ditemukan di Environment Variables!");
+} else {
+    client.login(TOKEN_DISCORD);
+}
