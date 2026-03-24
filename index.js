@@ -1,151 +1,172 @@
-require('dotenv').config();
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, REST, Routes } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const express = require('express');
-const cors = require('cors');
-const { nanoid } = require('nanoid');
-const Database = require('better-sqlite3');
+const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 
-// 1. Setup Database SQLite
-const db = new Database('database.sqlite');
-db.exec(`
-  CREATE TABLE IF NOT EXISTS tokens (
-    token TEXT PRIMARY KEY,
-    user_id TEXT,
-    hwid TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME
-  )
-`);
+// ================= PENGATURAN BOT =================
+// Kamu wajib memasukkan variabel ini di tab "Variables" Railway nanti
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN || "ISI_TOKEN_BOT_KAMU_DI_SINI_JIKA_TEST_LOKAL";
+const OWNER_ID = process.env.OWNER_ID || "ISI_ID_DISCORD_KAMU"; 
+const PORT = process.env.PORT || 3000;
 
-// 2. Setup Express API untuk Script Lua
+// ================= DATABASE LOKAL =================
+const dbFile = './database.json';
+function loadDB() {
+    if (!fs.existsSync(dbFile)) return {};
+    return JSON.parse(fs.readFileSync(dbFile, 'utf8'));
+}
+function saveDB(data) {
+    fs.writeFileSync(dbFile, JSON.stringify(data, null, 4));
+}
+
+// ================= WEB API (EXPRESS) =================
 const app = express();
-app.use(cors());
-app.use(express.json());
+app.get('/api/check', (req, res) => {
+    const token = req.query.token;
+    if (!token) return res.send("INVALID");
 
-// API Verifikasi Token dari Lua Moonloader
-app.get('/api/verify', (req, res) => {
-    const { token, hwid } = req.query;
-    
-    if (!token || !hwid) {
-        return res.json({ status: 'error', message: 'Token atau HWID kosong!' });
+    const db = loadDB();
+    const tokenData = db[token];
+
+    if (!tokenData) return res.send("INVALID");
+    if (tokenData.status === "KILLED") return res.send("KILLED");
+
+    // Cek Expired (24 Jam = 86400000 ms)
+    const now = Date.now();
+    if (now - tokenData.createdAt > 86400000) {
+        tokenData.status = "EXPIRED";
+        saveDB(db);
+        return res.send("INVALID"); // Expired dianggap invalid oleh script
     }
 
-    const row = db.prepare('SELECT * FROM tokens WHERE token = ?').get(token);
-
-    if (!row) {
-        return res.json({ status: 'error', message: 'Token tidak ditemukan atau tidak valid.' });
-    }
-    
-    // Jika belum ada HWID (Claim Pertama Kali)
-    if (!row.hwid) {
-        db.prepare('UPDATE tokens SET hwid = ? WHERE token = ?').run(hwid, token);
-        return res.json({ status: 'success', message: 'Token berhasil diikat dengan PC ini!' });
-    } 
-    // Jika HWID tidak cocok
-    else if (row.hwid !== hwid) {
-        return res.json({ status: 'error', message: 'HWID tidak cocok! Hubungi Admin.' });
-    }
-
-    res.json({ status: 'success', message: 'Akses Diberikan. Selamat datang!' });
+    return res.send("VALID");
 });
 
-// 3. Setup Discord Bot
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-const LOG_CHANNEL_ID = '1485999148682448906'; // Sesuai permintaan
+app.listen(PORT, () => console.log(`[WEB API] Menyala di port ${PORT}`));
 
-client.once('ready', async () => {
-    console.log(`[Tatang Community] Bot aktif sebagai ${client.user.tag}`);
-    
-    const commands = [
-        { name: 'token', description: 'Claim token akses script kamu' },
-        { name: 'paneltoken', description: 'Buka panel kontrol admin (Admin Only)' }
-    ];
-    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-    await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+// ================= DISCORD BOT =================
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ],
+    partials: [Partials.Channel]
 });
 
+client.on('ready', () => {
+    console.log(`[BOT] Login sebagai ${client.user.tag}`);
+});
+
+// Perintah Text (/setup dan /hapus)
+client.on('messageCreate', async message => {
+    if (message.author.bot) return;
+
+    // Command untuk memunculkan Menu Button
+    if (message.content === '!setup' && message.author.id === OWNER_ID) {
+        const embed = new EmbedBuilder()
+            .setTitle('🔐 Autojob Script Authentication')
+            .setDescription('Silakan klik tombol di bawah untuk mendapatkan Token Script. Token berlaku selama 24 jam.')
+            .setColor('#00bfff');
+
+        const row = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('claim_token')
+                    .setLabel('Claim Token')
+                    .setEmoji('🔑')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId('cek_token')
+                    .setLabel('Cek Status Token')
+                    .setEmoji('ℹ️')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+        await message.channel.send({ embeds: [embed], components: [row] });
+        return;
+    }
+
+    // Command Hapus/Kill Token (Hanya Owner)
+    if (message.content.startsWith('/hapus')) {
+        if (message.author.id !== OWNER_ID) {
+            return message.reply("❌ Kamu bukan Owner!");
+        }
+
+        const args = message.content.split(' ');
+        const targetToken = args[1];
+
+        if (!targetToken) return message.reply("❌ Format salah! Gunakan: `/hapus <token>`");
+
+        const db = loadDB();
+        if (!db[targetToken]) {
+            return message.reply("❌ Token tidak ditemukan di database.");
+        }
+
+        db[targetToken].status = "KILLED";
+        saveDB(db);
+        return message.reply(`✅ Token \`${targetToken}\` berhasil dihapus dan script user akan hancur (Self-Destruct) saat mengecek API!`);
+    }
+});
+
+// Menangani klik tombol
 client.on('interactionCreate', async interaction => {
-    if (interaction.isCommand()) {
+    if (!interaction.isButton()) return;
+
+    const db = loadDB();
+    const userId = interaction.user.id;
+
+    if (interaction.customId === 'claim_token') {
+        // Cek apakah user sudah punya token aktif
+        let existingToken = Object.keys(db).find(t => db[t].userId === userId && db[t].status === "VALID");
         
-        // COMMAND: /token (Untuk User)
-        if (interaction.commandName === 'token') {
-            const checkUser = db.prepare('SELECT * FROM tokens WHERE user_id = ?').get(interaction.user.id);
-            if (checkUser) {
-                return interaction.reply({ content: `❌ Kamu sudah memiliki token aktif: \`${checkUser.token}\``, ephemeral: true });
-            }
-
-            const newToken = `TATANG-${nanoid(8).toUpperCase()}`;
-            // Set expired ke 24 Januari tahun depan (contoh)
-            db.prepare('INSERT INTO tokens (token, user_id, expires_at) VALUES (?, ?, ?)')
-              .run(newToken, interaction.user.id, '2027-01-24 00:00:00');
-
-            const embedUser = new EmbedBuilder()
-                .setTitle('🎟️ Claim Token Berhasil!')
-                .setDescription(`Halo <@${interaction.user.id}>, ini token akses script kamu.\n\n\`${newToken}\`\n\n⚠️ *Jangan berikan token ini ke siapapun!*`)
-                .setColor(0x00FF00)
-                .setFooter({ text: 'Expired: 24 Januari' });
-
-            await interaction.reply({ embeds: [embedUser], ephemeral: true });
-
-            const logChannel = client.channels.cache.get(LOG_CHANNEL_ID);
-            if (logChannel) {
-                const embedLog = new EmbedBuilder()
-                    .setTitle('📝 Log Claim Token')
-                    .setDescription(`**User:** <@${interaction.user.id}>\n**Token:** ||${newToken}||\n**Waktu Claim:** <t:${Math.floor(Date.now() / 1000)}:F>\n**Expired:** 24 Januari`)
-                    .setColor(0x00BFFF);
-                logChannel.send({ embeds: [embedLog] });
+        if (existingToken) {
+            const now = Date.now();
+            if (now - db[existingToken].createdAt <= 86400000) {
+                return interaction.reply({ 
+                    content: `❌ Kamu sudah memiliki token yang masih aktif:\n\`${existingToken}\``, 
+                    ephemeral: true 
+                });
             }
         }
 
-        // COMMAND: /paneltoken (Untuk Admin)
-        if (interaction.commandName === 'paneltoken') {
-            if (!interaction.member.permissions.has('Administrator')) {
-                return interaction.reply({ content: '❌ Akses ditolak. Hanya Admin.', ephemeral: true });
-            }
+        // Buat token baru
+        const rawToken = uuidv4().split('-')[0].toUpperCase(); 
+        const newToken = `AARP-${rawToken}`; // Format: AARP-ABCD
 
-            const embedPanel = new EmbedBuilder()
-                .setTitle('🎛️ Panel Kontrol Token')
-                .setDescription('Menu manajemen token untuk user\n(Self-Service):\n\n**♻️ Refund Token**\nGanti token lama dengan baru.\n\n**💻 Reset HWID**\nHapus status HWID.\n\n**🔍 Cek Token**\nLihat semua token aktif.')
-                .setColor(0x2B2D31);
+        db[newToken] = {
+            userId: userId,
+            status: "VALID",
+            createdAt: Date.now()
+        };
+        saveDB(db);
 
-            const row1 = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('btn_reset_token').setLabel('Reset Token').setEmoji('♻️').setStyle(ButtonStyle.Danger),
-                new ButtonBuilder().setCustomId('btn_reset_hwid').setLabel('Reset HWID').setEmoji('💻').setStyle(ButtonStyle.Primary)
-            );
-            
-            const row2 = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('btn_cek_token').setLabel('Cek Token').setEmoji('🔍').setStyle(ButtonStyle.Secondary)
-            );
-
-            await interaction.reply({ embeds: [embedPanel], components: [row1, row2] });
-        }
+        await interaction.reply({
+            content: `✅ **Token Berhasil Dibuat!**\nMasukkan token ini ke dalam script:\n\`${newToken}\`\n\n*(Token kedaluwarsa dalam 24 jam)*`,
+            ephemeral: true // Hanya user yang klik yang bisa melihat
+        });
     }
 
-    // BUTTON HANDLERS (Logika Panel Admin/User)
-    if (interaction.isButton()) {
-        const userId = interaction.user.id;
-        const userToken = db.prepare('SELECT * FROM tokens WHERE user_id = ?').get(userId);
-
-        if (!userToken) {
-            return interaction.reply({ content: '❌ Kamu belum melakukan claim token.', ephemeral: true });
+    if (interaction.customId === 'cek_token') {
+        let userTokens = Object.keys(db).filter(t => db[t].userId === userId);
+        if (userTokens.length === 0) {
+            return interaction.reply({ content: "❌ Kamu belum pernah claim token.", ephemeral: true });
         }
 
-        if (interaction.customId === 'btn_cek_token') {
-            return interaction.reply({ content: `✅ Token Aktif Kamu: \`${userToken.token}\`\n💻 Status HWID: ${userToken.hwid ? 'Terkunci' : 'Kosong'}`, ephemeral: true });
+        let latestToken = userTokens[userTokens.length - 1]; // Ambil yang terakhir
+        let data = db[latestToken];
+        let status = data.status;
+
+        // Cek manual jika valid tapi sudah lewat waktu
+        if (status === "VALID" && (Date.now() - data.createdAt > 86400000)) {
+            status = "EXPIRED";
         }
 
-        if (interaction.customId === 'btn_reset_hwid') {
-            db.prepare('UPDATE tokens SET hwid = NULL WHERE user_id = ?').run(userId);
-            return interaction.reply({ content: '💻 HWID berhasil di-reset! Silakan login ulang di script.', ephemeral: true });
-        }
-
-        if (interaction.customId === 'btn_reset_token') {
-            const newToken = `TATANG-${nanoid(8).toUpperCase()}`;
-            db.prepare('UPDATE tokens SET token = ?, hwid = NULL WHERE user_id = ?').run(newToken, userId);
-            return interaction.reply({ content: `♻️ Token berhasil diganti!\nToken Baru: \`${newToken}\``, ephemeral: true });
-        }
+        await interaction.reply({
+            content: `ℹ️ **Informasi Token Terakhirmu:**\nToken: \`${latestToken}\`\nStatus: **${status}**`,
+            ephemeral: true
+        });
     }
 });
 
-app.listen(process.env.PORT || 3000, () => console.log('API Server berjalan...'));
-client.login(process.env.DISCORD_TOKEN);
+client.login(DISCORD_TOKEN);
