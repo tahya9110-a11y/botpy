@@ -1,172 +1,135 @@
-const { Client, GatewayIntentBits, Partials, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
-const express = require('express');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const { Client, GatewayIntentBits, Events, REST, Routes, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js'); const express = require('express'); require('dotenv').config();
 
-// ================= PENGATURAN BOT =================
-// Kamu wajib memasukkan variabel ini di tab "Variables" Railway nanti
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN || "ISI_TOKEN_BOT_KAMU_DI_SINI_JIKA_TEST_LOKAL";
-const OWNER_ID = process.env.OWNER_ID || "ISI_ID_DISCORD_KAMU"; 
-const PORT = process.env.PORT || 3000;
+const token = process.env.DISCORD_TOKEN; const port = process.env.PORT || 3000;
 
-// ================= DATABASE LOKAL =================
-const dbFile = './database.json';
-function loadDB() {
-    if (!fs.existsSync(dbFile)) return {};
-    return JSON.parse(fs.readFileSync(dbFile, 'utf8'));
+if (!token) { console.error('DISCORD_TOKEN belum diisi.'); process.exit(1); }
+
+const app = express(); app.get('/', (_, res) => res.send('Bot is running')); app.listen(port, () => console.log(Web server running on port ${port}));
+
+const client = new Client({ intents: [GatewayIntentBits.Guilds], });
+
+const uploads = new Map(); let nextId = 1;
+
+function makeUploadId() { return String(nextId++).padStart(4, '0'); }
+
+function buildCommands() { return [ new SlashCommandBuilder() .setName('upload') .setDescription('Buat postingan upload media') .addStringOption(opt => opt.setName('judul') .setDescription('Judul postingan') .setRequired(true) ) .addStringOption(opt => opt.setName('cmd') .setDescription('Command, contoh: /fish') .setRequired(true) ) .addStringOption(opt => opt.setName('deskripsi') .setDescription('Deskripsi singkat') .setRequired(true) ) .addStringOption(opt => opt.setName('download') .setDescription('Link download') .setRequired(true) ) .addStringOption(opt => opt.setName('credit') .setDescription('Credit / author') .setRequired(false) ) .addAttachmentOption(opt => opt.setName('media') .setDescription('Foto atau video') .setRequired(false) ) .setDMPermission(false),
+
+new SlashCommandBuilder()
+  .setName('listupload')
+  .setDescription('Lihat data upload yang tersimpan')
+  .setDMPermission(false),
+
+new SlashCommandBuilder()
+  .setName('hapusupload')
+  .setDescription('Hapus data upload berdasarkan ID')
+  .addStringOption(opt =>
+    opt.setName('id')
+      .setDescription('ID upload')
+      .setRequired(true)
+  )
+  .setDMPermission(false),
+
+].map(cmd => cmd.toJSON()); }
+
+async function registerCommands() { const rest = new REST({ version: '10' }).setToken(token); const commands = buildCommands();
+
+try { if (process.env.GUILD_ID) { await rest.put(Routes.applicationGuildCommands(client.user.id, process.env.GUILD_ID), { body: commands }); console.log('Slash commands registered to guild.'); } else { await rest.put(Routes.applicationCommands(client.user.id), { body: commands }); console.log('Slash commands registered globally.'); } } catch (error) { console.error('Failed to register commands:', error); } }
+
+function buildUploadEmbed(data) { const embed = new EmbedBuilder() .setTitle(data.judul) .setColor(0x4f7cff) .addFields( { name: 'Command', value: \${data.cmd}`, inline: false }, { name: 'Deskripsi', value: data.deskripsi || '-', inline: false }, { name: 'Download', value: data.download ? klik untuk download: '-', inline: false }, { name: 'Credit', value: data.credit || '-', inline: false }, { name: 'ID', value:`${data.id}`, inline: true } ) .setFooter({ text: Uploaded by ${data.userTag}` }) .setTimestamp(new Date(data.createdAt));
+
+if (data.mediaUrl) { if (data.mediaType === 'video') { embed.addFields({ name: 'Media', value: [Buka video](${data.mediaUrl}), inline: false }); } else { embed.setImage(data.mediaUrl); } }
+
+return embed; }
+
+client.once(Events.ClientReady, async () => { console.log(Logged in as ${client.user.tag}); await registerCommands(); });
+
+client.on(Events.InteractionCreate, async (interaction) => { try { if (!interaction.isChatInputCommand()) return;
+
+if (interaction.commandName === 'upload') {
+  const judul = interaction.options.getString('judul', true);
+  const cmd = interaction.options.getString('cmd', true);
+  const deskripsi = interaction.options.getString('deskripsi', true);
+  const download = interaction.options.getString('download', true);
+  const credit = interaction.options.getString('credit') || interaction.user.tag;
+  const attachment = interaction.options.getAttachment('media');
+  const id = makeUploadId();
+
+  const mediaUrl = attachment?.url || null;
+  const mediaType = attachment?.contentType?.startsWith('video/') ? 'video' : attachment ? 'image' : null;
+
+  const data = {
+    id,
+    judul,
+    cmd,
+    deskripsi,
+    download,
+    credit,
+    mediaUrl,
+    mediaType,
+    userTag: interaction.user.tag,
+    createdAt: Date.now(),
+  };
+
+  uploads.set(id, data);
+
+  const embed = buildUploadEmbed(data);
+  const components = [];
+
+  if (download && download !== '-') {
+    components.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setLabel('Download')
+          .setStyle(ButtonStyle.Link)
+          .setURL(download)
+      )
+    );
+  }
+
+  await interaction.reply({
+    content: `Upload berhasil. ID: \`${id}\``,
+    embeds: [embed],
+    components,
+  });
+  return;
 }
-function saveDB(data) {
-    fs.writeFileSync(dbFile, JSON.stringify(data, null, 4));
+
+if (interaction.commandName === 'listupload') {
+  const items = [...uploads.values()].sort((a, b) => Number(b.id) - Number(a.id));
+  if (items.length === 0) {
+    await interaction.reply({ content: 'Belum ada data upload.', ephemeral: true });
+    return;
+  }
+
+  const text = items.slice(0, 20).map(item => {
+    return `\`${item.id}\` | **${item.judul}** | ${item.cmd} | ${item.credit || '-'} `;
+  }).join('\n');
+
+  await interaction.reply({ content: `**Daftar upload**\n${text}`, ephemeral: true });
+  return;
 }
 
-// ================= WEB API (EXPRESS) =================
-const app = express();
-app.get('/api/check', (req, res) => {
-    const token = req.query.token;
-    if (!token) return res.send("INVALID");
+if (interaction.commandName === 'hapusupload') {
+  const id = interaction.options.getString('id', true);
+  if (!uploads.has(id)) {
+    await interaction.reply({ content: `ID \`${id}\` tidak ditemukan.`, ephemeral: true });
+    return;
+  }
 
-    const db = loadDB();
-    const tokenData = db[token];
+  uploads.delete(id);
+  await interaction.reply({ content: `Data upload \`${id}\` berhasil dihapus.`, ephemeral: true });
+  return;
+}
 
-    if (!tokenData) return res.send("INVALID");
-    if (tokenData.status === "KILLED") return res.send("KILLED");
+} catch (error) { console.error(error);
 
-    // Cek Expired (24 Jam = 86400000 ms)
-    const now = Date.now();
-    if (now - tokenData.createdAt > 86400000) {
-        tokenData.status = "EXPIRED";
-        saveDB(db);
-        return res.send("INVALID"); // Expired dianggap invalid oleh script
-    }
+const payload = { content: 'Terjadi error saat memproses command.', ephemeral: true };
+if (interaction.replied || interaction.deferred) {
+  await interaction.followUp(payload).catch(() => {});
+} else {
+  await interaction.reply(payload).catch(() => {});
+}
 
-    return res.send("VALID");
-});
+} });
 
-app.listen(PORT, () => console.log(`[WEB API] Menyala di port ${PORT}`));
-
-// ================= DISCORD BOT =================
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
-    ],
-    partials: [Partials.Channel]
-});
-
-client.on('ready', () => {
-    console.log(`[BOT] Login sebagai ${client.user.tag}`);
-});
-
-// Perintah Text (/setup dan /hapus)
-client.on('messageCreate', async message => {
-    if (message.author.bot) return;
-
-    // Command untuk memunculkan Menu Button
-    if (message.content === '!setup' && message.author.id === OWNER_ID) {
-        const embed = new EmbedBuilder()
-            .setTitle('🔐 Autojob Script Authentication')
-            .setDescription('Silakan klik tombol di bawah untuk mendapatkan Token Script. Token berlaku selama 24 jam.')
-            .setColor('#00bfff');
-
-        const row = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId('claim_token')
-                    .setLabel('Claim Token')
-                    .setEmoji('🔑')
-                    .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                    .setCustomId('cek_token')
-                    .setLabel('Cek Status Token')
-                    .setEmoji('ℹ️')
-                    .setStyle(ButtonStyle.Secondary)
-            );
-
-        await message.channel.send({ embeds: [embed], components: [row] });
-        return;
-    }
-
-    // Command Hapus/Kill Token (Hanya Owner)
-    if (message.content.startsWith('/hapus')) {
-        if (message.author.id !== OWNER_ID) {
-            return message.reply("❌ Kamu bukan Owner!");
-        }
-
-        const args = message.content.split(' ');
-        const targetToken = args[1];
-
-        if (!targetToken) return message.reply("❌ Format salah! Gunakan: `/hapus <token>`");
-
-        const db = loadDB();
-        if (!db[targetToken]) {
-            return message.reply("❌ Token tidak ditemukan di database.");
-        }
-
-        db[targetToken].status = "KILLED";
-        saveDB(db);
-        return message.reply(`✅ Token \`${targetToken}\` berhasil dihapus dan script user akan hancur (Self-Destruct) saat mengecek API!`);
-    }
-});
-
-// Menangani klik tombol
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
-
-    const db = loadDB();
-    const userId = interaction.user.id;
-
-    if (interaction.customId === 'claim_token') {
-        // Cek apakah user sudah punya token aktif
-        let existingToken = Object.keys(db).find(t => db[t].userId === userId && db[t].status === "VALID");
-        
-        if (existingToken) {
-            const now = Date.now();
-            if (now - db[existingToken].createdAt <= 86400000) {
-                return interaction.reply({ 
-                    content: `❌ Kamu sudah memiliki token yang masih aktif:\n\`${existingToken}\``, 
-                    ephemeral: true 
-                });
-            }
-        }
-
-        // Buat token baru
-        const rawToken = uuidv4().split('-')[0].toUpperCase(); 
-        const newToken = `AARP-${rawToken}`; // Format: AARP-ABCD
-
-        db[newToken] = {
-            userId: userId,
-            status: "VALID",
-            createdAt: Date.now()
-        };
-        saveDB(db);
-
-        await interaction.reply({
-            content: `✅ **Token Berhasil Dibuat!**\nMasukkan token ini ke dalam script:\n\`${newToken}\`\n\n*(Token kedaluwarsa dalam 24 jam)*`,
-            ephemeral: true // Hanya user yang klik yang bisa melihat
-        });
-    }
-
-    if (interaction.customId === 'cek_token') {
-        let userTokens = Object.keys(db).filter(t => db[t].userId === userId);
-        if (userTokens.length === 0) {
-            return interaction.reply({ content: "❌ Kamu belum pernah claim token.", ephemeral: true });
-        }
-
-        let latestToken = userTokens[userTokens.length - 1]; // Ambil yang terakhir
-        let data = db[latestToken];
-        let status = data.status;
-
-        // Cek manual jika valid tapi sudah lewat waktu
-        if (status === "VALID" && (Date.now() - data.createdAt > 86400000)) {
-            status = "EXPIRED";
-        }
-
-        await interaction.reply({
-            content: `ℹ️ **Informasi Token Terakhirmu:**\nToken: \`${latestToken}\`\nStatus: **${status}**`,
-            ephemeral: true
-        });
-    }
-});
-
-client.login(DISCORD_TOKEN);
+client.login(token);
