@@ -1,12 +1,11 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, SlashCommandBuilder } = require('discord.js');
 
-// Ambil Token & ID dari Environment Variables Railway
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 
 if (!TOKEN || !CLIENT_ID) {
-    console.error("❌ ERROR: TOKEN atau CLIENT_ID belum diatur di Variables Railway!");
+    console.error("❌ TOKEN / CLIENT_ID belum di set!");
     process.exit(1);
 }
 
@@ -14,34 +13,37 @@ const client = new Client({
     intents: [GatewayIntentBits.Guilds] 
 });
 
-// --- DEFINISI COMMAND ---
+// COMMAND TANPA LINK GAMBAR
 const commands = [
     new SlashCommandBuilder()
         .setName('upload')
-        .setDescription('Upload script atau mod ke server')
+        .setDescription('Upload script/mod')
         .addStringOption(opt => opt.setName('judul').setDescription('Judul Script').setRequired(true))
         .addStringOption(opt => opt.setName('cmd').setDescription('Command game').setRequired(true))
-        .addStringOption(opt => opt.setName('deskripsi').setDescription('Deskripsi mod').setRequired(true))
-        .addStringOption(opt => opt.setName('author').setDescription('Nama pembuat').setRequired(true))
+        .addStringOption(opt => opt.setName('deskripsi').setDescription('Deskripsi').setRequired(true))
+        .addStringOption(opt => opt.setName('author').setDescription('Author').setRequired(true))
         .addStringOption(opt => opt.setName('download').setDescription('Link download').setRequired(true))
-        .addStringOption(opt => opt.setName('gambar').setDescription('Link gambar/screenshot').setRequired(true))
+        .addAttachmentOption(opt => 
+            opt.setName('gambar')
+            .setDescription('Upload gambar (optional)')
+            .setRequired(false)
+        )
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
-// --- REGISTER COMMANDS & READY ---
+// REGISTER COMMAND
 client.once('ready', async () => {
     console.log(`✅ Bot Aktif: ${client.user.tag}`);
     try {
-        console.log('🔄 Memperbarui Slash Commands...');
         await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('✅ Slash Commands Berhasil Terpasang!');
+        console.log('✅ Slash Commands OK!');
     } catch (err) {
-        console.error('❌ Gagal pasang Command:', err);
+        console.error(err);
     }
 });
 
-// --- INTERACTION HANDLER ---
+// HANDLE COMMAND
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
@@ -51,9 +53,9 @@ client.on('interactionCreate', async (interaction) => {
         const dsk = interaction.options.getString('deskripsi');
         const aut = interaction.options.getString('author');
         const dwn = interaction.options.getString('download');
-        const img = interaction.options.getString('gambar');
+        const img = interaction.options.getAttachment('gambar'); // FIX
 
-        const tgl = new Date().toLocaleDateString('en-GB'); // Format DD/MM/YYYY
+        const tgl = new Date().toLocaleDateString('id-ID');
 
         const embed = new EmbedBuilder()
             .setColor('#2b2d31')
@@ -62,16 +64,17 @@ client.on('interactionCreate', async (interaction) => {
                 { name: 'Command', value: `\`${cmd}\`` },
                 { name: 'Deskripsi', value: dsk },
                 { name: 'Author', value: aut },
-                { name: 'Download', value: `[klik untuk download](${dwn})` }
+                { name: 'Download', value: dwn }
             )
-            .setImage(img)
-            .setFooter({ text: `@tatang comunity | Today ${tgl}` });
+            .setFooter({ text: `@tatang comunity | ${tgl}` });
 
-        await interaction.reply({ embeds: [embed] }).catch(err => console.error("Gagal kirim embed:", err));
+        // Kalau ada gambar upload → tampilkan
+        if (img) {
+            embed.setImage(img.url);
+        }
+
+        await interaction.reply({ embeds: [embed] });
     }
 });
 
-// Login bot
-client.login(TOKEN).catch(err => {
-    console.error("❌ Gagal Login: Token salah atau masalah koneksi.");
-});
+client.login(TOKEN);
