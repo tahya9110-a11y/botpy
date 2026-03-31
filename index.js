@@ -27,7 +27,7 @@ const client = new Client({
 const commands = [
     new SlashCommandBuilder()
         .setName('upload')
-        .setDescription('Upload script/mod ke channel tertentu')
+        .setDescription('Upload script/mod ke channel')
         .addChannelOption(opt =>
             opt.setName('channel')
             .setDescription('Pilih channel tujuan')
@@ -51,7 +51,7 @@ const commands = [
         )
         .addStringOption(opt => 
             opt.setName('credit')
-            .setDescription('Nama pembuat')
+            .setDescription('Credit pembuat')
             .setRequired(true)
         )
         .addStringOption(opt => 
@@ -93,7 +93,7 @@ client.on('interactionCreate', async (interaction) => {
             const jdl = interaction.options.getString('judul');
             const cmd = interaction.options.getString('cmd');
             const dsk = interaction.options.getString('deskripsi');
-            const aut = interaction.options.getString('Credit');
+            const credit = interaction.options.getString('credit');
             const dwn = interaction.options.getString('download');
             const img = interaction.options.getAttachment('gambar');
 
@@ -101,14 +101,14 @@ client.on('interactionCreate', async (interaction) => {
 
             const embed = new EmbedBuilder()
                 .setColor('#ffffff')
-                .setTitle(jdl)
+                .setTitle(`**${jdl}**`) // BOLD TITLE
                 .addFields(
                     { name: 'Command', value: `\`${cmd}\`` },
                     { name: 'Deskripsi', value: dsk },
-                    { name: 'Credit', value: aut },
+                    { name: 'Credit', value: credit }, // ganti dari author
                     { name: 'Download', value: `[klik untuk download](${dwn})` }
                 )
-                .setFooter({ text: `@tatang lua | ${tgl}` });
+                .setFooter({ text: `@tatang comunity | ${tgl}` });
 
             if (img) {
                 embed.setImage(img.url);
@@ -117,7 +117,7 @@ client.on('interactionCreate', async (interaction) => {
             // kirim ke channel tujuan
             await channel.send({ embeds: [embed] });
 
-            // balas ke user
+            // notif ke user
             await interaction.reply({
                 content: `✅ Berhasil dikirim ke ${channel}`,
                 ephemeral: true
