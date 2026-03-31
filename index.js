@@ -108,7 +108,7 @@ client.on('interactionCreate', async (interaction) => {
                     { name: 'Author', value: aut },
                     { name: 'Download', value: `[klik untuk download](${dwn})` }
                 )
-                .setFooter({ text: `@tatang comunity | ${tgl}` });
+                .setFooter({ text: `@tatang lua | ${tgl}` });
 
             if (img) {
                 embed.setImage(img.url);
