@@ -1,7 +1,7 @@
 {
   "name": "tatang-discord-bot",
   "version": "1.0.0",
-  "description": "Bot Discord untuk Upload Script SAMP / Monetloader",
+  "description": "Bot Discord Upload Script SAMP",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -11,6 +11,6 @@
     "dotenv": "^16.4.5"
   },
   "engines": {
-    "node": ">=16.9.0"
+    "node": "18.x"
   }
 }
