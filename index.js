@@ -50,7 +50,7 @@ const commands = [
             .setRequired(true)
         )
         .addStringOption(opt => 
-            opt.setName('author')
+            opt.setName('credit')
             .setDescription('Nama pembuat')
             .setRequired(true)
         )
@@ -93,7 +93,7 @@ client.on('interactionCreate', async (interaction) => {
             const jdl = interaction.options.getString('judul');
             const cmd = interaction.options.getString('cmd');
             const dsk = interaction.options.getString('deskripsi');
-            const aut = interaction.options.getString('author');
+            const aut = interaction.options.getString('Credit');
             const dwn = interaction.options.getString('download');
             const img = interaction.options.getAttachment('gambar');
 
@@ -105,7 +105,7 @@ client.on('interactionCreate', async (interaction) => {
                 .addFields(
                     { name: 'Command', value: `\`${cmd}\`` },
                     { name: 'Deskripsi', value: dsk },
-                    { name: 'Author', value: aut },
+                    { name: 'Credit', value: aut },
                     { name: 'Download', value: `[klik untuk download](${dwn})` }
                 )
                 .setFooter({ text: `@tatang lua | ${tgl}` });
