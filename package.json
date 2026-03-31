@@ -1,18 +1,16 @@
 {
   "name": "tatang-discord-bot",
   "version": "1.0.0",
-  "description": "Bot Scanner Lua, AI Toxic, dan CS Generator by Tatang",
+  "description": "Bot Discord untuk Upload Script SAMP / Monetloader",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "node index.js"
   },
-  "author": "Tatang Community",
-  "license": "ISC",
   "dependencies": {
-    "axios": "^1.6.8",
     "discord.js": "^14.14.1",
-    "dotenv": "^16.4.5",
-    "groq-sdk": "^0.3.2"
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=16.9.0"
   }
-} 
+}
